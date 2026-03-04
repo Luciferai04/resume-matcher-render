@@ -10,7 +10,10 @@ RUN npm install
 COPY . .
 
 # Build the application
-ARG NEXT_PUBLIC_API_URL="http://localhost:8000"
+# NEXT_PUBLIC_ vars are baked into the JS bundle at build time by Next.js.
+# Render's fromService env vars are NOT available during Docker build,
+# so we hardcode the production backend URL here.
+ARG NEXT_PUBLIC_API_URL="https://rm-backend-vrph.onrender.com"
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
