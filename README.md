@@ -4,11 +4,13 @@
 
 # Resume Matcher
 
-[𝙹𝚘𝚒𝚗 𝙳𝚒𝚜𝚌𝚘𝚛𝚍](https://dsc.gg/resume-matcher) ✦ [𝚆𝚎𝚋𝚜𝚒𝚝𝚎](https://resumematcher.fyi) ✦ [𝙷𝚘𝚠 𝚝𝚘 𝙸𝚗𝚜𝚝𝚊𝚕𝚕](https://resumematcher.fyi/docs/installation) ✦ [𝙲𝚘𝚗𝚝𝚛𝚒𝚋𝚞𝚝𝚘𝚛𝚜](#contributors) ✦ [𝚂𝚙𝚘𝚗𝚜𝚘𝚛](#sponsor-resume-matcher) ✦ [𝚃𝚠𝚒𝚝𝚝𝚎𝚛/𝚇](https://twitter.com/srbhrai) ✦ [𝙻𝚒𝚗𝚔𝚎𝚍𝙸𝚗](https://www.linkedin.com/company/resume-matcher/) ✦ [𝙲𝚛𝚎𝚊𝚝𝚘𝚛](https://srbhr.com)
+**An AI-Powered, Multi-Tenant ATS Resume Tailoring Platform**
+
+[𝙹𝚘𝚒𝚗 𝙳𝚒𝚜𝚌𝚘𝚛𝚍](https://dsc.gg/resume-matcher) ✦ [𝚆𝚎𝚋𝚜𝚒𝚝𝚎](https://resumematcher.fyi) ✦ [𝙷𝚘𝚠 𝚝𝚘 𝙸𝚗𝚜𝚝𝚊𝚕𝚕](#how-to-install) ✦ [𝙰𝚛𝚌𝚑𝚒𝚝𝚎𝚌𝚝𝚞𝚛𝚎](#architecture) ✦ [𝙼𝚞𝚕𝚝𝚒-𝚃𝚎𝚗𝚊𝚗𝚌𝚢](#multi-tenant-architecture) ✦ [𝙳𝚎𝚙𝚕𝚘𝚢𝚖𝚎𝚗𝚝](#deployment-on-render)
 
 **English** | [Español](README.es.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-Create tailored resumes for each job application with AI-powered suggestions. Works locally with Ollama or connect to your favorite LLM provider via API.
+Create tailored resumes for each job application with AI-powered suggestions. Built for companies and institutions to track cohorts of students through their ATS journey — from Day 1 to Day 6 — with complete data isolation per user.
 
 ![Resume Matcher Demo](assets/Resume_Matcher_Demo_2.gif)
 
@@ -19,7 +21,7 @@ Create tailored resumes for each job application with AI-powered suggestions. Wo
 <div align="center">
 
 ![Stars](https://img.shields.io/github/stars/srbhr/Resume-Matcher?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
-![Apache 2.0](https://img.shields.io/github/license/srbhr/Resume-Matcher?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8) ![Forks](https://img.shields.io/github/forks/srbhr/Resume-Matcher?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8) ![version](https://img.shields.io/badge/Version-1.1%20Voyager%20-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
+![Apache 2.0](https://img.shields.io/github/license/srbhr/Resume-Matcher?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8) ![Forks](https://img.shields.io/github/forks/srbhr/Resume-Matcher?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8) ![version](https://img.shields.io/badge/Version-2.0%20Multi--Tenant%20-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
 
 [![Discord](https://img.shields.io/discord/1122069176962531400?labelColor=F0F0E8&logo=discord&logoColor=1d4ed8&style=for-the-badge&color=1d4ed8)](https://dsc.gg/resume-matcher) [![Website](https://img.shields.io/badge/website-Resume%20Matcher-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)](https://resumematcher.fyi) [![LinkedIn](https://img.shields.io/badge/LinkedIn-Resume%20Matcher-FFF?labelColor=F0F0E8&logo=LinkedIn&style=for-the-badge&color=1d4ed8)](https://www.linkedin.com/company/resume-matcher/)
 
@@ -31,13 +33,322 @@ Create tailored resumes for each job application with AI-powered suggestions. Wo
 
 > \[!IMPORTANT]
 >
-> This project is in active development. New features are being added continuously, and we welcome contributions from the community. If you have any suggestions or feature requests, please feel free to open an issue on GitHub or discuss it on our [Discord](https://dsc.gg/resume-matcher) server.
+> **Version 2.0 — Multi-Tenant Architecture** is now live. This release transforms Resume Matcher from a single-user tool into a scalable, cohort-based platform designed for companies and institutions managing hundreds of students. Every user's data (resumes, jobs, cover letters) is fully isolated.
 
-## Getting Started
+---
 
-Resume Matcher works by creating a master resume that you can use to tailor for each job application. Installation instructions here: [How to Install](#how-to-install)
+## Table of Contents
 
-### How It Works
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Multi-Tenant Architecture](#multi-tenant-architecture)
+- [How It Works](#how-it-works)
+- [How to Install](#how-to-install)
+- [Deployment on Render](#deployment-on-render)
+- [API Reference](#api-reference)
+- [Tech Stack](#tech-stack)
+- [Sponsors](#sponsors)
+- [Contributors](#contributors)
+
+---
+
+## Overview
+
+Resume Matcher is designed for **companies running placement cohorts** — think 200 students per month, each uploading their resume on Day 1, improving it with AI suggestions, and tracking their ATS progress through Day 6. The platform provides:
+
+- **Per-student data isolation** — Each student only sees their own resumes, jobs, and cover letters.
+- **AI-powered resume tailoring** — Paste a job description, get a resume optimized for that role.
+- **ATS scoring & SWOT analysis** — Understand how your resume stacks up against Applicant Tracking Systems.
+- **Cover letter & email generation** — Auto-generate professional cover letters and outreach emails.
+- **PDF export** with multiple professional templates.
+- **Multi-language support** — English, Spanish, Chinese, Japanese.
+
+---
+
+## Key Features
+
+![resume_matcher_features](assets/features.png)
+
+### 1. Master Resume Upload & Processing
+
+Upload a comprehensive master resume (PDF or DOCX). The system parses it, extracts structured sections (personal info, experience, education, skills, projects), and stores it as the foundation for all future tailored resumes.
+
+![Master Resume View](assets/master_resume_view.png)
+
+### 2. Job Description Input & AI Tailoring
+
+Paste a job description and the AI analyzes it against your master resume. It generates a tailored version with optimized keywords, restructured bullet points, and content adjustments specific to that role.
+
+![Job Description Input](assets/step_2.png)
+
+### 3. Interactive Resume Builder
+
+![Resume Builder](assets/step_5.png)
+
+The drag-and-drop resume builder lets you:
+
+- **Modify** AI-generated content or write your own
+- **Add/remove** sections dynamically
+- **Rearrange** sections via drag-and-drop
+- **Choose** from multiple professional templates
+- **Preview** changes in real-time
+
+### 4. Cover Letter & Email Generator
+
+Generate tailored cover letters and professional outreach emails based on the job description and your resume content.
+
+![Cover Letter](assets/cover_letter.png)
+
+### 5. ATS Resume Scoring (In Development)
+
+Analyze your resume against the job description. Get a match score, keyword highlighting, and actionable suggestions for improvement.
+
+![Resume Scoring and Keyword Highlight](assets/keyword_highlighter.png)
+
+### 6. PDF Export with Professional Templates
+
+Export your tailored resume and cover letter as polished PDFs using headless Chromium (Playwright).
+
+| Template Name | Preview | Description |
+|---------------|---------|-------------|
+| **Classic Single Column** | ![Classic Template](assets/pdf-templates/single-column.jpg) | A traditional and clean layout suitable for most industries. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/single-column.pdf) |
+| **Modern Single Column** | ![Modern Template](assets/pdf-templates/modern-single-column.jpg) | A contemporary design with a focus on readability and aesthetics. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/modern-single-column.pdf)|
+| **Classic Two Column** | ![Classic Two Column Template](assets/pdf-templates/two-column.jpg) | A structured layout that separates sections for clarity. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/two-column.pdf)|
+| **Modern Two Column** | ![Modern Two Column Template](assets/pdf-templates/modern-two-column.jpg) | A sleek design that utilizes two columns for better organization. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/modern-two-column.pdf)|
+
+### 7. Internationalization
+
+- **Multi-Language UI**: Interface available in English, Spanish, Chinese, and Japanese
+- **Multi-Language Content**: Generate resumes and cover letters in your preferred language
+
+---
+
+## Architecture
+
+Resume Matcher follows a **monorepo** structure with a clear separation between backend and frontend:
+
+```
+Resume-Matcher/
+├── apps/
+│   ├── backend/               # FastAPI + Python 3.13
+│   │   ├── app/
+│   │   │   ├── main.py        # FastAPI app entry point
+│   │   │   ├── config.py      # Pydantic settings (env vars, CORS, LLM config)
+│   │   │   ├── models.py      # SQLModel data models (User, Cohort, Resume, Job)
+│   │   │   ├── database.py    # SQL database layer with tenant-scoped CRUD
+│   │   │   ├── auth.py        # X-User-ID header extraction dependency
+│   │   │   ├── worker.py      # Celery background worker for async tasks
+│   │   │   └── routers/
+│   │   │       ├── resumes.py # Resume upload, processing, tailoring, PDF gen
+│   │   │       ├── jobs.py    # Job description management
+│   │   │       └── enrichment.py # AI-powered resume improvement
+│   │   ├── seed.py            # Database seeding script for test users/cohorts
+│   │   ├── start.sh           # Entrypoint: runs both Celery worker + FastAPI
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   │
+│   └── frontend/              # Next.js 15 + React 19 + TypeScript
+│       ├── app/
+│       │   ├── (default)/
+│       │   │   ├── dashboard/ # Main dashboard with resume cards
+│       │   │   ├── resumes/   # Resume viewer/editor pages
+│       │   │   ├── tailor/    # Job description input + AI tailoring
+│       │   │   ├── builder/   # Drag-and-drop resume builder
+│       │   │   ├── settings/  # LLM provider configuration
+│       │   │   └── layout.tsx # Default layout with UserSwitcher
+│       │   └── print/         # Server-rendered pages for PDF generation
+│       ├── components/
+│       │   └── common/
+│       │       └── user-switcher.tsx # Identity switcher for testing
+│       ├── lib/
+│       │   └── api/
+│       │       ├── client.ts  # Centralized API client (injects X-User-ID)
+│       │       └── auth.ts    # User identity management (localStorage)
+│       └── Dockerfile
+│
+├── render.yaml                # Render Blueprint for one-click deployment
+├── docker-compose.yml         # Local Docker development
+└── Makefile                   # Development shortcuts
+```
+
+### Request Flow
+
+```
+Browser → Next.js Frontend → apiFetch() [injects X-User-ID header]
+                                 ↓
+                          FastAPI Backend
+                                 ↓
+                    get_current_user(X-User-ID)
+                                 ↓
+                    Tenant-scoped database query
+                                 ↓
+                    SQLModel → PostgreSQL / SQLite
+```
+
+Every API request follows this chain:
+
+1. The **frontend** reads the current user ID from `localStorage` and attaches it as an `X-User-ID` HTTP header via the centralized `apiFetch()` wrapper.
+2. The **backend** extracts this header using the `get_current_user` FastAPI dependency.
+3. All **database operations** are scoped to that `user_id`, ensuring complete data isolation.
+
+---
+
+## Multi-Tenant Architecture
+
+This is the core architectural change that transforms Resume Matcher from a personal tool into an enterprise-grade cohort tracking platform.
+
+### Why Multi-Tenancy?
+
+When a company runs monthly placement cohorts of 200 students:
+- Each student needs their **own** master resume, tailored resumes, and job descriptions
+- An instructor needs to be able to **switch contexts** to view any student's progress
+- Data must be **fully isolated** — Student A cannot see Student B's resumes
+
+### Database Schema
+
+Four core models power the multi-tenant system:
+
+```
+┌─────────────┐     ┌──────────────┐
+│   Cohort    │     │     User     │
+├─────────────┤     ├──────────────┤
+│ cohort_id   │◄────│ cohort_id    │
+│ name        │     │ user_id (PK) │
+│ start_date  │     │ name         │
+└─────────────┘     │ email        │
+                    └──────┬───────┘
+                           │ user_id (FK)
+              ┌────────────┴────────────┐
+              ▼                         ▼
+      ┌──────────────┐         ┌──────────────┐
+      │   Resume     │         │     Job      │
+      ├──────────────┤         ├──────────────┤
+      │ resume_id    │         │ job_id       │
+      │ user_id (FK) │         │ user_id (FK) │
+      │ is_master    │         │ content      │
+      │ parent_id    │         │ created_at   │
+      │ filename     │         └──────────────┘
+      │ raw_resume   │
+      │ processed_   │
+      │   resume     │
+      │ cover_letter │
+      └──────────────┘
+```
+
+- **Cohort**: Groups students by batch (e.g., "March 2026 Batch")
+- **User**: Individual students with `user_id`, `name`, `email`, linked to a cohort
+- **Resume**: Each resume has a `user_id` FK. The `parent_id` field tracks resume versions (Day 1 original → Day 6 improved). The `is_master` flag identifies the primary resume.
+- **Job**: Job descriptions are also scoped per user via `user_id` FK.
+
+### Authentication (MVP)
+
+For the MVP, we use a lightweight **mocked identity** system via the `X-User-ID` HTTP header:
+
+**`apps/backend/app/auth.py`**
+```python
+from fastapi import Header
+from typing import Optional
+
+async def get_current_user(x_user_id: Optional[str] = Header(None)) -> Optional[str]:
+    """Extract user identity from X-User-ID header."""
+    return x_user_id
+```
+
+This dependency is injected into every endpoint:
+```python
+@router.post("/resumes/upload")
+async def upload_resume(
+    file: UploadFile,
+    user_id: Optional[str] = Depends(get_current_user),
+):
+    # All database operations are scoped to user_id
+    resume = db.create_resume(user_id=user_id, ...)
+```
+
+### Frontend Integration
+
+**API Client (`lib/api/client.ts`)** — Every request automatically includes the user context:
+```typescript
+import { getUserId } from './auth';
+
+export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const userId = getUserId();
+  const headers = {
+    ...options.headers,
+    'X-User-ID': userId,
+  };
+  // ... fetch with headers
+}
+```
+
+**Auth Utility (`lib/api/auth.ts`)** — Manages identity in `localStorage`:
+```typescript
+const STORAGE_KEY = 'rm_user_id';
+const DEFAULT_USER = 'student_001';
+
+export function getUserId(): string {
+  if (typeof window === 'undefined') return DEFAULT_USER;
+  return localStorage.getItem(STORAGE_KEY) || DEFAULT_USER;
+}
+
+export function setUserId(id: string): void {
+  localStorage.setItem(STORAGE_KEY, id);
+  window.location.reload(); // Reload to fetch new user's data
+}
+```
+
+**User Switcher Component** — A floating button in the bottom-right corner allows quickly switching between student identities for testing and instructor review:
+
+```
+┌─────────────────────┐
+│  Switch Context      │
+│                      │
+│  ● Student 1 (Day 1) │  ← currently selected
+│    Student 2 (TL)    │
+│    Student 3 (PM)    │
+│    Admin/Instructor  │
+│                      │
+│  MVP: X-User-ID      │
+└─────────────────────┘
+        [👥]  ← floating button
+```
+
+### Scoped Database Operations
+
+Every database method is scoped to the requesting user:
+
+```python
+# Only returns resumes belonging to this specific user
+def list_resumes(self, user_id: str = None) -> list[dict]:
+    query = select(Resume)
+    if user_id:
+        query = query.where(Resume.user_id == user_id)
+    ...
+
+# Each user has their own master resume
+def get_master_resume(self, user_id: str = None) -> dict | None:
+    query = select(Resume).where(Resume.is_master == True)
+    if user_id:
+        query = query.where(Resume.user_id == user_id)
+    ...
+```
+
+### PDF Generation with User Context
+
+When generating PDFs, the backend passes the `userId` as a query parameter to the frontend print pages. This ensures the headless browser fetches the correct user's data:
+
+```python
+url = f"{settings.frontend_base_url}/print/resumes/{resume_id}?{params}"
+if user_id:
+    url = f"{url}&userId={user_id}"
+```
+
+The print page then uses this `userId` to set the `X-User-ID` header when fetching resume data from the API.
+
+---
+
+## How It Works
 
 1. **Upload** your master resume (PDF or DOCX)
 2. **Paste** a job description you're targeting
@@ -60,6 +371,243 @@ Follow us on [LinkedIn](https://www.linkedin.com/company/resume-matcher/) for up
 
 Star the repo to support development and get notified of new releases.
 
+---
+
+<a id="how-to-install"></a>
+
+## How to Install
+
+![Installation](assets/how_to_install_resumematcher.png)
+
+For detailed setup instructions, see **[SETUP.md](SETUP.md)** (English) or: [Español](SETUP.es.md), [简体中文](SETUP.zh-CN.md), [日本語](SETUP.ja.md).
+
+### Prerequisites
+
+| Tool | Version | Installation |
+|------|---------|--------------|
+| Python | 3.13+ | [python.org](https://python.org) |
+| Node.js | 22+ | [nodejs.org](https://nodejs.org) |
+| uv | Latest | [astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/) |
+
+### Quick Start (Local Development)
+
+Fastest for MacOS, WSL and Ubuntu users:
+
+```bash
+# Clone the repository
+git clone https://github.com/Luciferai04/resume-matcher-render.git
+cd resume-matcher-render
+
+# Backend (Terminal 1)
+cd apps/backend
+cp .env.example .env        # Configure your AI provider
+uv sync                      # Install dependencies
+uv run uvicorn app.main:app --reload --port 8000
+
+# Frontend (Terminal 2)
+cd apps/frontend
+npm install
+npm run dev
+```
+
+Open **<http://localhost:3000>** and configure your AI provider in Settings.
+
+### Seed the Database (Optional)
+
+To populate the database with test users and cohorts for multi-tenant testing:
+
+```bash
+cd apps/backend
+python seed.py
+```
+
+This creates:
+- A **"March 2026 Batch"** cohort
+- Four test users: `student_001`, `student_002`, `student_003`, `admin_demo`
+
+Use the **User Switcher** (👥 button in the bottom-right) to toggle between these identities.
+
+### Supported AI Providers
+
+| Provider | Local/Cloud | Notes |
+|----------|-------------|-------|
+| **Ollama** | Local | Free, runs on your machine |
+| **OpenAI** | Cloud | GPT-4o, GPT-4o-mini |
+| **Anthropic** | Cloud | Claude 3.5 Sonnet |
+| **Google Gemini** | Cloud | Gemini 1.5 Flash/Pro |
+| **OpenRouter** | Cloud | Access to multiple models |
+| **DeepSeek** | Cloud | DeepSeek Chat |
+
+### Docker Deployment (Local)
+
+```bash
+docker compose up --build
+```
+
+> **Using Ollama with Docker?** Use `http://host.docker.internal:11434` as the Ollama URL instead of `localhost`.
+
+---
+
+## Deployment on Render
+
+Resume Matcher ships with a **Render Blueprint** (`render.yaml`) for one-click cloud deployment on [Render](https://render.com).
+
+### What Gets Deployed
+
+| Service | Type | Plan | Description |
+|---------|------|------|-------------|
+| **rm-backend** | Web Service (Docker) | Free | FastAPI backend + Celery worker (consolidated) |
+| **rm-frontend** | Web Service (Docker) | Free | Next.js frontend |
+| **rm-database** | PostgreSQL | Free | Managed PostgreSQL 18 database |
+| **rm-redis** | Redis (Valkey 8) | Free | Message broker for Celery tasks |
+
+### How to Deploy
+
+1. **Fork or push** this repository to your GitHub account
+2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+3. Connect your repository and select the branch with `render.yaml`
+4. Fill in the required environment variables:
+
+   | Variable | Value | Description |
+   |----------|-------|-------------|
+   | `LLM_PROVIDER` | `gemini` / `openai` / etc. | Your AI provider |
+   | `LLM_MODEL` | `gemini-1.5-flash` / etc. | Model identifier |
+   | `LLM_API_KEY` | `your-api-key` | Provider API key |
+
+5. Click **Deploy Blueprint**
+
+### Render Blueprint Configuration
+
+The `render.yaml` file defines the complete infrastructure:
+
+```yaml
+databases:
+  - name: rm-database
+    plan: free
+
+services:
+  # Redis for Celery
+  - type: redis
+    name: rm-redis
+    plan: free
+
+  # Backend (FastAPI + Celery worker in one container)
+  - type: web
+    name: rm-backend
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rm-database
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: rm-redis
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # Frontend (Next.js)
+  - type: web
+    name: rm-frontend
+    runtime: docker
+    dockerfilePath: apps/frontend/Dockerfile
+    dockerContext: apps/frontend
+    plan: free
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: rm-backend
+          envVarKey: RENDER_EXTERNAL_URL
+```
+
+### Key Deployment Decisions
+
+1. **Consolidated Backend + Worker**: Render's Free tier does not support separate `worker` service types. We consolidated the Celery worker into the backend container using a `start.sh` entrypoint that runs both processes:
+
+   ```bash
+   #!/bin/bash
+   celery -A app.worker.celery_app worker --loglevel=info &
+   uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. **CORS Configuration**: The `CORS_ORIGINS` environment variable is parsed by Pydantic. A `field_validator` was added to `config.py` to handle both `*` (plain string) and `["*"]` (JSON array) formats:
+
+   ```python
+   @field_validator("cors_origins", mode="before")
+   @classmethod
+   def assemble_cors_origins(cls, v):
+       if isinstance(v, str) and not v.startswith("["):
+           return [i.strip() for i in v.split(",")]
+       return v
+   ```
+
+3. **Frontend ↔ Backend URL**: The frontend automatically discovers the backend URL via Render's `RENDER_EXTERNAL_URL` variable, passed through the `fromService` directive in the blueprint.
+
+---
+
+## API Reference
+
+All API endpoints are prefixed with `/api/v1/` and require the `X-User-ID` header for multi-tenant operations.
+
+### Health & Status
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/health` | Health check |
+| `GET` | `/api/v1/status` | System status (LLM configured, resume count) |
+
+### Resumes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/resumes/upload` | Upload a master resume (PDF/DOCX) |
+| `GET` | `/api/v1/resumes` | Get resume by `resume_id` query param |
+| `GET` | `/api/v1/resumes/list` | List all resumes for the current user |
+| `DELETE` | `/api/v1/resumes/{id}` | Delete a specific resume |
+| `POST` | `/api/v1/resumes/{id}/retry` | Retry failed processing |
+| `POST` | `/api/v1/resumes/{id}/generate-pdf` | Generate PDF for a resume |
+| `POST` | `/api/v1/resumes/{id}/generate-cover-letter-pdf` | Generate cover letter PDF |
+
+### Jobs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/jobs/upload` | Upload a job description |
+| `GET` | `/api/v1/jobs/{id}` | Get a specific job description |
+
+### Enrichment
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/enrichment/improve` | Preview AI improvements |
+| `POST` | `/api/v1/enrichment/confirm` | Confirm and apply improvements |
+| `POST` | `/api/v1/enrichment/regenerate` | Regenerate with different parameters |
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Backend | FastAPI, Python 3.13+, LiteLLM, Celery |
+| Frontend | Next.js 15, React 19, TypeScript |
+| Database | SQLModel + SQLite (local) / PostgreSQL (production) |
+| Cache/Broker | Redis (Valkey 8) for Celery task queue |
+| Auth (MVP) | `X-User-ID` header with localStorage persistence |
+| Styling | Tailwind CSS 4, Swiss International Style |
+| PDF Generation | Headless Chromium via Playwright |
+| Deployment | Render Blueprint (Docker) |
+| CI/CD | Auto-deploy on push to `main` branch |
+
+---
+
 ## Sponsors
 
 ![sponsors](assets/sponsors.png)
@@ -79,7 +627,7 @@ We are grateful to our sponsors who help keep this project going. If you find Re
 
 ![donate](assets/supporting_resume_matcher.png)
 
-Please read our [Sponsorship Guide]([docs/agent/80-sponsorship/sponsorship-guide.md](https://resumematcher.fyi/docs/sponsoring)) for details on how your sponsorship helps the project. You will receive a special thank you in the ReadME and on our website.
+Please read our [Sponsorship Guide](https://resumematcher.fyi/docs/sponsoring) for details on how your sponsorship helps the project. You will receive a special thank you in the ReadME and on our website.
 
 | Platform  | Link                                   |
 |-----------|----------------------------------------|
@@ -98,138 +646,7 @@ You can follow me on:
 - Twitter: [https://twitter.com/srbhrai](https://twitter.com/srbhrai)
 - GitHub: [https://github.com/srbhr](https://github.com/srbhr)
 
-## Key Features
-
-![resume_matcher_features](assets/features.png)
-
-### Core Features
-
-**Master Resume**: Create a comprehensive master resume to draw from your existing one.
-
-![Job Description Input](assets/step_2.png)
-
-### Resume Builder
-
-![Resume Builder](assets/step_5.png)
-
-Paste in a job description and get AI-powered resume tailored for that specific role.
-
-You can:
-
-- Modify suggested content
-- Add/remove sections
-- Rearrange sections via drag-and-drop
-- Choose from multiple resume templates
-
-### Cover Letter & Email Generator
-
-Generate tailored cover letters and email templates based on the job description and your resume.
-
-![Cover Letter](assets/cover_letter.png)
-
-### Resume Scoring (In development feature)
-
-We are working on a resume scoring feature that will analyze your resume against the job description and provide a match score along with suggestions for improvement.
-
-![Resume Scoring and Keyword Highlight](assets/keyword_highlighter.png)
-
-### PDF Export
-
-Export your tailored resume and cover letter in PDF.
-
-### Templates
-
-| Template Name | Preview | Description |
-|---------------|---------|-------------|
-| **Classic Single Column** | ![Classic Template](assets/pdf-templates/single-column.jpg) | A traditional and clean layout suitable for most industries. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/single-column.pdf) |
-| **Modern Single Column** | ![Modern Template](assets/pdf-templates/modern-single-column.jpg) | A contemporary design with a focus on readability and aesthetics. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/modern-single-column.pdf)|
-| **Classic Two Column** | ![Classic Two Column Template](assets/pdf-templates/two-column.jpg) | A structured layout that separates sections for clarity. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/two-column.pdf)|
-| **Modern Two Column** | ![Modern Two Column Template](assets/pdf-templates/modern-two-column.jpg) | A sleek design that utilizes two columns for better organization. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/modern-two-column.pdf)|
-
-### Internationalization
-
-- **Multi-Language UI**: Interface available in English, Spanish, Chinese, and Japanese
-- **Multi-Language Content**: Generate resumes and cover letters in your preferred language
-
-### Roadmap
-
-If you have any suggestions or feature requests, please feel free to open an issue on GitHub or discuss it on our [Discord](https://dsc.gg/resume-matcher) server.
-
-- Visual keyword highlighting
-- AI Canvas for crafting impactful, metric-driven resume content
-- Multi-job description optimization
-
-<a id="how-to-install"></a>
-
-## How to Install
-
-![Installation](assets/how_to_install_resumematcher.png)
-
-For detailed setup instructions, see **[SETUP.md](SETUP.md)** (English) or: [Español](SETUP.es.md), [简体中文](SETUP.zh-CN.md), [日本語](SETUP.ja.md).
-
-### Prerequisites
-
-| Tool | Version | Installation |
-|------|---------|--------------|
-| Python | 3.13+ | [python.org](https://python.org) |
-| Node.js | 22+ | [nodejs.org](https://nodejs.org) |
-| uv | Latest | [astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/) |
-
-### Quick Start
-
-Fastest for MacOS, WSL and Ubuntu users:
-
-```bash
-# Clone the repository
-git clone https://github.com/srbhr/Resume-Matcher.git
-cd Resume-Matcher
-
-# Backend (Terminal 1)
-cd apps/backend
-cp .env.example .env        # Configure your AI provider
-uv sync                      # Install dependencies
-uv run uvicorn app.main:app --reload --port 8000
-
-# Frontend (Terminal 2)
-cd apps/frontend
-npm install
-npm run dev
-```
-
-Open **<http://localhost:3000>** and configure your AI provider in Settings.
-
-### Supported AI Providers
-
-| Provider | Local/Cloud | Notes |
-|----------|-------------|-------|
-| **Ollama** | Local | Free, runs on your machine |
-| **OpenAI** | Cloud | GPT-4o, GPT-4o-mini |
-| **Anthropic** | Cloud | Claude 3.5 Sonnet |
-| **Google Gemini** | Cloud | Gemini 1.5 Flash/Pro |
-| **OpenRouter** | Cloud | Access to multiple models |
-| **DeepSeek** | Cloud | DeepSeek Chat |
-
-### Docker Deployment
-
-```bash
-docker pull srbhr/resume-matcher:latest
-
-docker run srbhr/resume-matcher:latest
-```
-
-<!-- Note: Docker documentation is pending. For now, use docker-compose.yml as reference -->
-
-> **Using Ollama with Docker?** Use `http://host.docker.internal:11434` as the Ollama URL instead of `localhost`.
-
-### Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Backend | FastAPI, Python 3.13+, LiteLLM |
-| Frontend | Next.js 15, React 19, TypeScript |
-| Database | TinyDB (JSON file storage) |
-| Styling | Tailwind CSS 4, Swiss International Style |
-| PDF | Headless Chromium via Playwright |
+---
 
 ## Join Us and Contribute
 
@@ -237,7 +654,18 @@ docker run srbhr/resume-matcher:latest
 
 We welcome contributions from everyone! Whether you're a developer, designer, or just someone who wants to help out. All the contributors are listed in the [about page](https://resumematcher.fyi/about) on our website and on the GitHub Readme here.
 
-Check out the roadmap if you would like to work on the features that are planned for the future. If you have any suggestions or feature requests, please feel free to open an issue on GitHub and discuss it on our [Discord](https://dsc.gg/resume-matcher) server.
+### Roadmap
+
+- ✅ Multi-tenant architecture with per-user data isolation
+- ✅ One-click deployment on Render
+- ✅ User context switcher for testing/instructor review
+- ✅ Consolidated backend + worker for Free tier hosting
+- 🔲 Full OAuth/JWT authentication
+- 🔲 Instructor dashboard for cohort-wide progress tracking
+- 🔲 Database migrations with Alembic
+- 🔲 Visual keyword highlighting
+- 🔲 AI Canvas for crafting impactful, metric-driven resume content
+- 🔲 Multi-job description optimization
 
 <a id="contributors"></a>
 
