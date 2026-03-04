@@ -19,6 +19,8 @@ WORKDIR /app
 
 # Enable standalone output
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Copy necessary files from builder
 COPY --from=builder /app/public ./public
