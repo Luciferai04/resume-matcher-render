@@ -77,4 +77,4 @@ services:
         fromService:
           type: web
           name: rm-backend
-          property: envVar:RENDER_EXTERNAL_URL
+          envVarKey: RENDER_EXTERNAL_URL
