@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api_be/:path*',
-        destination: `${API_URL}/:path*`,
+        source: '/api/backend/:path*',
+        destination: `${BACKEND_URL}/:path*`,
       },
     ];
   },
