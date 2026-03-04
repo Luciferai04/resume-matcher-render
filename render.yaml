@@ -1,21 +1,23 @@
-services:
+databases:
   # Managed PostgreSQL Database
-  - type: psql
-    name: rm-database
+  - name: rm-database
     plan: free
 
+services:
   # Managed Redis for Celery Broker
   - type: redis
     name: rm-redis
     plan: free
+    ipAllowList: []
     maxmemoryPolicy: noeviction
 
   # FastAPI Backend Service
   - type: web
     name: rm-backend
-    env: docker
-    dockerContext: apps/backend
-    dockerfilePath: apps/backend/Dockerfile
+    runtime: image
+    image:
+      dockerfilePath: apps/backend/Dockerfile
+      context: apps/backend
     plan: free
     healthCheckPath: /api/v1/health
     envVars:
@@ -41,9 +43,10 @@ services:
   # Celery Background Worker
   - type: worker
     name: rm-worker
-    env: docker
-    dockerContext: apps/backend
-    dockerfilePath: apps/backend/Dockerfile
+    runtime: image
+    image:
+      dockerfilePath: apps/backend/Dockerfile
+      context: apps/backend
     dockerCommand: celery -A app.worker.celery_app worker --loglevel=info
     plan: free
     envVars:
@@ -67,9 +70,10 @@ services:
   # Next.js Frontend Service
   - type: web
     name: rm-frontend
-    env: docker
-    dockerContext: apps/frontend
-    dockerfilePath: apps/frontend/Dockerfile
+    runtime: image
+    image:
+      dockerfilePath: apps/frontend/Dockerfile
+      context: apps/frontend
     plan: free
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
