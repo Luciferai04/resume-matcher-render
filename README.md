@@ -86,9 +86,7 @@ Please read our [Sponsorship Guide]([docs/agent/80-sponsorship/sponsorship-guide
 | GitHub    | [![GitHub Sponsors](https://img.shields.io/github/sponsors/srbhr?style=for-the-badge&color=1d4ed8&labelColor=F0F0E8&logo=github&logoColor=black)](https://github.com/sponsors/srbhr) |
 | Buy Me a Coffee | [![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&color=1d4ed8&labelColor=F0F0E8&logoColor=black)](https://www.buymeacoffee.com/srbhr) |
 
-## Creators' Note
 
-[![srbhr](assets/creators_note.png)](https://srbhr.com)
 
 Thank you for checking out Resume Matcher. If you want to connect, collaborate, or just say hi, feel free to reach out!
 ~ **Saurabh Rai** ✨
