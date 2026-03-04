@@ -1,21 +1,16 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Resume, { ResumeData } from '@/components/dashboard/resume-component';
-import {
-  fetchResume,
-  downloadResumePdf,
-  getResumePdfUrl,
-  deleteResume,
-  retryProcessing,
-  renameResume,
-} from '@/lib/api/resume';
+import { fetchResume, downloadResumePdf, getResumePdfUrl, deleteResume, retryProcessing, renameResume, fetchATSScore, fetchSWOTAnalysis, fetchJobDescription, type ATSScore, type SWOTAnalysis } from '@/lib/api/resume';
 import { useStatusCache } from '@/lib/context/status-cache';
-import { ArrowLeft, Edit, Download, Loader2, AlertCircle, Sparkles, Pencil } from 'lucide-react';
+import { ArrowLeft, Edit, Download, Loader2, AlertCircle, Sparkles, Pencil, BarChart3 } from 'lucide-react';
 import { EnrichmentModal } from '@/components/enrichment/enrichment-modal';
+import ATSScoreComponent from '@/components/resume/ats-score';
+import SWOTAnalysisComponent from '@/components/resume/swot-analysis';
 import { useTranslations } from '@/lib/i18n';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 import { useLanguage } from '@/lib/context/language-context';
@@ -43,6 +38,15 @@ export default function ResumeViewerPage() {
   const [resumeTitle, setResumeTitle] = useState<string | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitleValue, setEditingTitleValue] = useState('');
+  const [atsScore, setAtsScore] = useState<ATSScore | null>(null);
+  const [swotAnalysis, setSwotAnalysis] = useState<SWOTAnalysis | null>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const insightsRef = useRef<HTMLDivElement>(null);
+
+  const scrollToInsights = () => {
+    insightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const resumeId = params?.id as string;
 
@@ -71,6 +75,20 @@ export default function ResumeViewerPage() {
         if (data.processed_resume) {
           setResumeData(data.processed_resume as ResumeData);
           setError(null);
+
+          // If it's a tailored resume, fetch job ID and then ATS/SWOT
+          if (data.parent_id) {
+            try {
+              // We need to find the job ID associated with this resume
+              // The backend improvement record maps tailored_resume_id -> job_id
+              const jobData = await fetchJobDescription(resumeId);
+              if (jobData?.job_id) {
+                setJobId(jobData.job_id);
+              }
+            } catch (jobErr) {
+              console.error('Failed to fetch job context:', jobErr);
+            }
+          }
         } else if (status === 'failed') {
           setError(t('resumeViewer.errors.processingFailed'));
         } else if (status === 'processing') {
@@ -97,6 +115,27 @@ export default function ResumeViewerPage() {
     loadResume();
     setIsMasterResume(localStorage.getItem('master_resume_id') === resumeId);
   }, [resumeId, t]);
+
+  useEffect(() => {
+    if (resumeId && jobId && !isMasterResume) {
+      const loadAnalysis = async () => {
+        setLoadingAnalysis(true);
+        try {
+          const [score, swot] = await Promise.all([
+            fetchATSScore(resumeId, jobId),
+            fetchSWOTAnalysis(resumeId, jobId)
+          ]);
+          setAtsScore(score);
+          setSwotAnalysis(swot);
+        } catch (err) {
+          console.error('Failed to load ATS/SWOT analysis:', err);
+        } finally {
+          setLoadingAnalysis(false);
+        }
+      };
+      loadAnalysis();
+    }
+  }, [resumeId, jobId, isMasterResume]);
 
   const handleRetryProcessing = async () => {
     if (!resumeId) return;
@@ -227,13 +266,12 @@ export default function ResumeViewerPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F0F0E8] p-4">
         <div
-          className={`border p-6 text-center max-w-md shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] ${
-            isProcessing
-              ? 'bg-blue-50 border-blue-200'
-              : isFailed
-                ? 'bg-orange-50 border-orange-200'
-                : 'bg-red-50 border-red-200'
-          }`}
+          className={`border p-6 text-center max-w-md shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] ${isProcessing
+            ? 'bg-blue-50 border-blue-200'
+            : isFailed
+              ? 'bg-orange-50 border-orange-200'
+              : 'bg-red-50 border-red-200'
+            }`}
         >
           <div className="flex justify-center mb-4">
             {isProcessing ? (
@@ -245,9 +283,8 @@ export default function ResumeViewerPage() {
             )}
           </div>
           <p
-            className={`font-bold mb-4 ${
-              isProcessing ? 'text-blue-700' : isFailed ? 'text-orange-700' : 'text-red-700'
-            }`}
+            className={`font-bold mb-4 ${isProcessing ? 'text-blue-700' : isFailed ? 'text-orange-700' : 'text-red-700'
+              }`}
           >
             {error || t('resumeViewer.resumeNotFound')}
           </p>
@@ -298,6 +335,10 @@ export default function ResumeViewerPage() {
             <Button variant="outline" onClick={handleEdit}>
               <Edit className="w-4 h-4" />
               {t('dashboard.editResume')}
+            </Button>
+            <Button variant="outline" onClick={scrollToInsights} className="gap-2 border-blue-700 text-blue-700 hover:bg-blue-50">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
             </Button>
             <Button variant="success" onClick={handleDownload}>
               <Download className="w-4 h-4" />
@@ -367,6 +408,37 @@ export default function ResumeViewerPage() {
               fallbackLabels={{ name: t('resume.defaults.name') }}
             />
           </div>
+        </div>
+
+        {/* ATS and SWOT Analysis Section */}
+        <div className="mt-12 no-print max-w-4xl mx-auto scroll-mt-8" ref={insightsRef}>
+          <div className="flex items-center gap-2 mb-6">
+            <BarChart3 className="w-6 h-6 text-blue-700" />
+            <h2 className="text-2xl font-bold font-serif">Analytics</h2>
+          </div>
+
+          {isMasterResume || (!jobId && !loadingAnalysis) ? (
+            <div className="p-8 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center justify-center gap-4">
+              <p className="text-slate-600 font-medium">To view ATS Score and SWOT analysis, you need to match this resume against a job description.</p>
+              <Button onClick={() => router.push('/dashboard')}>Create Tailored Resume</Button>
+            </div>
+          ) : loadingAnalysis ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border-2 border-dashed border-slate-300">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-700 mb-4" />
+              <p className="text-slate-600 font-medium">Analyzing resume match...</p>
+            </div>
+          ) : (
+            <>
+              {atsScore && <ATSScoreComponent score={atsScore} />}
+              {swotAnalysis && <SWOTAnalysisComponent swot={swotAnalysis} />}
+
+              {!atsScore && !swotAnalysis && (
+                <div className="p-6 bg-white rounded-xl border border-slate-200 text-center">
+                  <p className="text-slate-600">No analysis available for this resume match.</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="flex justify-end pt-4 no-print">

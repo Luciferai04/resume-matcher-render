@@ -126,6 +126,7 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-5-nano-2025-08-07"
     llm_api_key: str = ""
     llm_api_base: str | None = None  # For Ollama or custom endpoints
+    database_url: str | None = None  # PostgreSQL URL
 
     @field_validator("llm_provider", mode="before")
     @classmethod

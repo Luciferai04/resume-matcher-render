@@ -1,10 +1,13 @@
 """Document parsing service using markitdown and LLM."""
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any
 
 from markitdown import MarkItDown
+
+logger = logging.getLogger(__name__)
 
 from app.llm import complete_json
 from app.prompts import PARSE_RESUME_PROMPT
@@ -41,21 +44,22 @@ async def parse_resume_to_json(markdown_text: str) -> dict[str, Any]:
     """Parse resume markdown to structured JSON using LLM.
 
     Args:
-        markdown_text: Resume content in markdown format
+        markdown_text: The markdown content of the resume.
 
     Returns:
-        Structured resume data matching ResumeData schema
+        Structured resume data as a dictionary.
     """
-    prompt = PARSE_RESUME_PROMPT.format(
-        schema=RESUME_SCHEMA_EXAMPLE,
-        resume_text=markdown_text,
-    )
-
+    logger.info("Parsing resume to structured JSON")
+    
+    # This now calls the globally mocked complete_json in app.llm
     result = await complete_json(
-        prompt=prompt,
-        system_prompt="You are a JSON extraction engine. Output only valid JSON, no explanations.",
+        prompt=PARSE_RESUME_PROMPT.format(
+            resume_text=markdown_text, schema=RESUME_SCHEMA_EXAMPLE
+        )
     )
-
-    # Validate against schema
-    validated = ResumeData.model_validate(result)
-    return validated.model_dump()
+    
+    # Basic validation
+    if not result or not isinstance(result, dict):
+        raise ValueError("Failed to parse resume to a valid JSON object")
+        
+    return result

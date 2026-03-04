@@ -275,10 +275,10 @@
 }
 
 @media print {
-  /* Ensure the main resume container respects page boundaries */
+  /* Ensure the main resume container can break across pages if needed */
   .resume-body {
-    page-break-inside: avoid !important;
-    break-inside: avoid-page !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
   /* Avoid breaking individual resume items across pages */

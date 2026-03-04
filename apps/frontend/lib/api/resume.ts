@@ -68,6 +68,24 @@ interface ResumeResponse {
   };
 }
 
+export interface ATSScore {
+  totalScore: number;
+  breakdown: {
+    keywordMatch: number;
+    structuralCompleteness: number;
+    quantifiableImpact: number;
+    formatting: number;
+  };
+  suggestions: string[];
+}
+
+export interface SWOTAnalysis {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
 /** Response from resume upload endpoint */
 export interface ResumeUploadResponse {
   message: string;
@@ -371,6 +389,28 @@ export async function fetchJobDescription(
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Failed to fetch job description (status ${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+/** Fetches ATS score for a resume */
+export async function fetchATSScore(resumeId: string, jobId: string): Promise<ATSScore> {
+  const res = await apiFetch(
+    `/resumes/${encodeURIComponent(resumeId)}/ats-score?job_id=${encodeURIComponent(jobId)}`
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ATS score (status ${res.status}).`);
+  }
+  return res.json();
+}
+
+/** Fetches SWOT analysis for a resume */
+export async function fetchSWOTAnalysis(resumeId: string, jobId: string): Promise<SWOTAnalysis> {
+  const res = await apiFetch(
+    `/resumes/${encodeURIComponent(resumeId)}/swot-analysis?job_id=${encodeURIComponent(jobId)}`
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch SWOT analysis (status ${res.status}).`);
   }
   return res.json();
 }

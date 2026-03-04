@@ -39,6 +39,8 @@ from app.schemas import (
     UpdateOutreachMessageRequest,
     UpdateTitleRequest,
     normalize_resume_data,
+    ATSScoreResponse,
+    SWOTAnalysisResponse,
 )
 from app.services.parser import parse_document, parse_resume_to_json
 from app.services.improver import (
@@ -46,6 +48,8 @@ from app.services.improver import (
     generate_improvements,
     improve_resume,
 )
+from app.services.ats_scorer import calculate_ats_score
+from app.services.swot_analyzer import generate_swot_analysis
 from app.services.refiner import refine_resume, calculate_keyword_match
 from app.schemas.refinement import RefinementConfig
 from app.services.cover_letter import (
@@ -94,17 +98,22 @@ def _hash_job_content(content: str) -> str:
 
 def _normalize_payload(value: Any) -> Any:
     if isinstance(value, str):
-        return unicodedata.normalize("NFC", value)
+        # Normalize unicode and strip whitespace. 
+        # Treat empty strings as None for hash stability.
+        normalized = unicodedata.normalize("NFC", value).strip()
+        return normalized if normalized else None
     if isinstance(value, list):
+        # Filter and normalize list items
         return [_normalize_payload(item) for item in value]
     if isinstance(value, dict):
-        normalized: dict[Any, Any] = {}
+        # Filter and normalize dict entries
+        normalized_dict: dict[Any, Any] = {}
         for key, val in value.items():
             normalized_key = (
                 unicodedata.normalize("NFC", key) if isinstance(key, str) else key
             )
-            normalized[normalized_key] = _normalize_payload(val)
-        return normalized
+            normalized_dict[normalized_key] = _normalize_payload(val)
+        return normalized_dict
     return value
 
 
@@ -228,13 +237,15 @@ def _validate_confirm_payload(
             f"Improved personalInfo is not a dict: {type(improved_info).__name__}"
         )
     fields = set(original_info.keys()) | set(improved_info.keys())
-    mismatches = [
-        field
-        for field in sorted(fields)
-        if _normalize_personal_info_value(original_info.get(field))
-        != _normalize_personal_info_value(improved_info.get(field))
-    ]
+    mismatches = []
+    for field in sorted(fields):
+        orig_val = _normalize_personal_info_value(original_info.get(field))
+        imp_val = _normalize_personal_info_value(improved_info.get(field))
+        if orig_val != imp_val:
+            mismatches.append(field)
+            
     if mismatches:
+        logger.warning("personalInfo mismatches: %s", mismatches)
         raise ValueError(f"personalInfo fields changed: {', '.join(mismatches)}")
 
 
@@ -347,34 +358,20 @@ async def upload_resume(file: UploadFile = File(...)) -> ResumeUploadResponse:
         processing_status="processing",
     )
 
-    # Try to parse to structured JSON (optional, may fail if LLM not configured)
-    try:
-        processed_data = await parse_resume_to_json(markdown_content)
-        db.update_resume(
-            resume["resume_id"],
-            {
-                "processed_data": processed_data,
-                "processing_status": "ready",
-            },
-        )
-        resume["processed_data"] = processed_data
-        resume["processing_status"] = "ready"
-    except Exception as e:
-        # LLM parsing failed, update status to failed
-        logger.warning(f"Resume parsing to JSON failed for {file.filename}: {e}")
-        db.update_resume(resume["resume_id"], {"processing_status": "failed"})
-        resume["processing_status"] = "failed"
+    # Trigger background processing (scalability fix)
+    from app.worker import process_resume_task
+    process_resume_task.delay(resume["resume_id"])
+    
+    # Update status to processing
+    db.update_resume(resume["resume_id"], {"processing_status": "processing"})
+    resume["processing_status"] = "processing"
 
-    # Return accurate status to client (API-001 fix)
+    # Return accurate status to client
     return ResumeUploadResponse(
-        message=(
-            f"File {file.filename} uploaded successfully"
-            if resume["processing_status"] == "ready"
-            else f"File {file.filename} uploaded but parsing failed"
-        ),
+        message=f"File {file.filename} uploaded and processing in background",
         request_id=str(uuid4()),
         resume_id=resume["resume_id"],
-        processing_status=resume["processing_status"],
+        processing_status="processing",
         is_master=resume.get("is_master", False),
     )
 
@@ -512,12 +509,6 @@ async def improve_resume_preview_endpoint(
         # Collect warnings throughout the process
         response_warnings: list[str] = []
 
-        improved_data, preserve_warnings = _preserve_personal_info(
-            _get_original_resume_data(resume),
-            improved_data,
-        )
-        response_warnings.extend(preserve_warnings)
-
         # Multi-pass refinement: keyword injection, AI phrase removal, alignment validation
         stage = "refine_resume"
         refinement_stats: RefinementStats | None = None
@@ -575,8 +566,26 @@ async def improve_resume_preview_endpoint(
             if refinement_attempted:
                 response_warnings.append(f"Refinement failed: {str(e)}")
 
-        improved_text = json.dumps(improved_data, indent=2)
-        preview_hash = _hash_improved_data(improved_data)
+        # Validate and canonicalize data through Pydantic model
+        validated_resume = ResumeData.model_validate(improved_data)
+        canonical_dict = validated_resume.model_dump()
+        
+        # Ensure personal info is strictly preserved after all refinements
+        canonical_dict, preserve_warnings = _preserve_personal_info(
+            _get_original_resume_data(resume),
+            canonical_dict,
+        )
+        response_warnings.extend(preserve_warnings)
+        
+        # Re-validate and dump to ensures all default fields (like title, location) 
+        # are present in the hash, matching what the frontend will send back.
+        re_validated = ResumeData.model_validate(canonical_dict)
+        final_canonical_dict = re_validated.model_dump()
+        
+        # Hash the final, validated, and preserved data
+        improved_text = json.dumps(final_canonical_dict, indent=2)
+        preview_hash = _hash_improved_data(final_canonical_dict)
+        
         preview_hashes = job.get("preview_hashes")
         if not isinstance(preview_hashes, dict):
             preview_hashes = {}
@@ -599,6 +608,9 @@ async def improve_resume_preview_endpoint(
             logger.warning(
                 "Failed to persist preview hash for job %s: %s", request.job_id, e
             )
+        
+        improved_data = canonical_dict # Use canonical version for subsequent steps
+        
         stage = "calculate_diff"
         diff_summary, detailed_changes, diff_error = _calculate_diff_from_resume(
             resume,
@@ -616,7 +628,7 @@ async def improve_resume_preview_endpoint(
                 request_id=request_id,
                 resume_id=None,
                 job_id=request.job_id,
-                resume_preview=ResumeData.model_validate(improved_data),
+                resume_preview=re_validated,
                 improvements=[
                     {
                         "suggestion": imp["suggestion"],
@@ -1426,3 +1438,83 @@ async def download_cover_letter_pdf(
         "Content-Disposition": f'attachment; filename="cover_letter_{resume_id}.pdf"'
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.get("/{resume_id}/ats-score", response_model=ATSScoreResponse)
+async def get_ats_score_endpoint(
+    resume_id: str, job_id: str = Query(...)
+) -> ATSScoreResponse:
+    """Get ATS score for a resume against a job description."""
+    resume = db.get_resume(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job description not found")
+
+    # Get resume data
+    resume_data = resume.get("processed_data")
+    if not resume_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume has no processed data. Please re-upload.",
+        )
+
+    # Get job keywords
+    job_keywords = job.get("job_keywords")
+    if not job_keywords:
+        job_keywords = await extract_job_keywords(job["content"])
+        db.update_job(job_id, {"job_keywords": job_keywords})
+
+    # Get language setting
+    language = _get_content_language()
+
+    # Calculate ATS score
+    try:
+        result = await calculate_ats_score(
+            resume_data, job["content"], job_keywords, language
+        )
+        return ATSScoreResponse.model_validate(result)
+    except Exception as e:
+        logger.error(f"ATS score calculation failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to calculate ATS score. Please try again.",
+        )
+
+
+@router.get("/{resume_id}/swot-analysis", response_model=SWOTAnalysisResponse)
+async def get_swot_analysis_endpoint(
+    resume_id: str, job_id: str = Query(...)
+) -> SWOTAnalysisResponse:
+    """Get SWOT analysis for a candidate against a job description."""
+    resume = db.get_resume(resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    job = db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job description not found")
+
+    # Get resume data
+    resume_data = resume.get("processed_data")
+    if not resume_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume has no processed data. Please re-upload.",
+        )
+
+    # Get language setting
+    language = _get_content_language()
+
+    # Generate SWOT analysis
+    try:
+        result = await generate_swot_analysis(resume_data, job["content"], language)
+        return SWOTAnalysisResponse.model_validate(result)
+    except Exception as e:
+        logger.error(f"SWOT analysis generation failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate SWOT analysis. Please try again.",
+        )

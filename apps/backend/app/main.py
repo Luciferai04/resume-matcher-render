@@ -35,11 +35,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error closing PDF renderer: {e}")
 
-    try:
-        db.close()
-    except Exception as e:
-        logger.error(f"Error closing database: {e}")
-
 
 app = FastAPI(
     title="Resume Matcher API",

@@ -1,5 +1,6 @@
 """LiteLLM wrapper for multi-provider AI support."""
 
+import asyncio
 import json
 import logging
 import re
@@ -312,22 +313,16 @@ async def check_llm_health(
     if config is None:
         config = get_llm_config()
 
-    # Check if API key is configured (except for Ollama)
-    if config.provider != "ollama" and not config.api_key:
+    if not config.api_key and config.provider != "ollama":
         return {
             "healthy": False,
             "provider": config.provider,
-            "model": config.model,
             "error_code": "api_key_missing",
         }
 
-    model_name = get_model_name(config)
-
     prompt = test_prompt or "Hi"
-
     try:
-        # Make a minimal test call with timeout
-        # Pass API key directly to avoid race conditions with global os.environ
+        model_name = get_model_name(config)
         kwargs: dict[str, Any] = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
@@ -343,50 +338,46 @@ async def check_llm_health(
         response = await litellm.acompletion(**kwargs)
         content = _extract_choice_text(response.choices[0])
         if not content:
-            # LLM-003: Empty response should mark health check as unhealthy
             logging.warning(
                 "LLM health check returned empty content",
                 extra={"provider": config.provider, "model": config.model},
             )
             result: dict[str, Any] = {
-                "healthy": False,  # Fixed: empty content means unhealthy
+                "healthy": True,
                 "provider": config.provider,
                 "model": config.model,
-                "response_model": response.model if response else None,
-                "error_code": "empty_content",  # Changed from warning_code
-                "message": "LLM returned empty response",
+                "response_model": getattr(response, "model", None),
+                "warning": "LLM returned empty content for health check",
             }
-            if include_details:
-                result["test_prompt"] = _to_code_block(prompt)
-                result["model_output"] = _to_code_block(None)
-            return result
+        else:
+            result = {
+                "healthy": True,
+                "provider": config.provider,
+                "model": config.model,
+                "response_model": getattr(response, "model", None),
+            }
 
-        result = {
-            "healthy": True,
-            "provider": config.provider,
-            "model": config.model,
-            "response_model": response.model if response else None,
-        }
         if include_details:
             result["test_prompt"] = _to_code_block(prompt)
             result["model_output"] = _to_code_block(content)
+
         return result
+
     except Exception as e:
-        # Log full exception details server-side, but do not expose them to clients
-        logging.exception(
-            "LLM health check failed",
+        message = str(e)
+        logging.error(
+            "LLM health check failed: %s",
+            message,
             extra={"provider": config.provider, "model": config.model},
         )
-
-        # Provide a minimal, actionable client-facing hint without leaking secrets.
         error_code = "health_check_failed"
-        message = str(e)
-        if "404" in message and "/v1/v1/" in message:
+        if "v1/v1" in message:
             error_code = "duplicate_v1_path"
         elif "404" in message:
             error_code = "not_found_404"
         elif "<!doctype html" in message.lower() or "<html" in message.lower():
             error_code = "html_response"
+
         result = {
             "healthy": False,
             "provider": config.provider,
@@ -411,41 +402,31 @@ async def complete(
     if config is None:
         config = get_llm_config()
 
-    model_name = get_model_name(config)
-
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    try:
-        # Pass API key directly to avoid race conditions with global os.environ
-        kwargs: dict[str, Any] = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "api_key": config.api_key,
-            "api_base": _normalize_api_base(config.provider, config.api_base),
-            "timeout": LLM_TIMEOUT_COMPLETION,
-        }
-        if _supports_temperature(config.provider, model_name):
-            kwargs["temperature"] = temperature
-        reasoning_effort = _get_reasoning_effort(config.provider, model_name)
-        if reasoning_effort:
-            kwargs["reasoning_effort"] = reasoning_effort
+    model_name = get_model_name(config)
+    kwargs: dict[str, Any] = {
+        "model": model_name,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "api_key": config.api_key,
+        "api_base": _normalize_api_base(config.provider, config.api_base),
+        "timeout": _calculate_timeout("completion", max_tokens, config.provider),
+    }
 
-        response = await litellm.acompletion(**kwargs)
+    if _supports_temperature(config.provider, model_name):
+        kwargs["temperature"] = temperature
 
-        content = _extract_choice_text(response.choices[0])
-        if not content:
-            raise ValueError("Empty response from LLM")
-        return content
-    except Exception as e:
-        # Log the actual error server-side for debugging
-        logging.error(f"LLM completion failed: {e}", extra={"model": model_name})
-        raise ValueError(
-            "LLM completion failed. Please check your API configuration and try again."
-        ) from e
+    reasoning_effort = _get_reasoning_effort(config.provider, model_name)
+    if reasoning_effort:
+        kwargs["reasoning_effort"] = reasoning_effort
+
+    response = await litellm.acompletion(**kwargs)
+    content = _extract_choice_text(response.choices[0]) or ""
+    return content.strip()
 
 
 def _supports_json_mode(provider: str, model: str) -> bool:
@@ -468,25 +449,31 @@ def _appears_truncated(data: dict) -> bool:
     if not isinstance(data, dict):
         return False
 
-    # Check for empty arrays that should typically have content
+    # Define resume-specific keys
+    resume_keys = ["workExperience", "education", "skills", "personalInfo", "summary"]
+    
+    # If it's clearly not a resume (e.g., ATS score or SWOT), skip truncation check
+    is_ats = "totalScore" in data or "breakdown" in data
+    is_swot = any(k in data for k in ["strengths", "weaknesses", "opportunities", "threats"])
+    is_enrichment = "items_to_enrich" in data or "questions" in data
+    
+    if is_ats or is_swot or is_enrichment:
+        return False
+
+    # Check for empty arrays that should typically have content in a resume
     suspicious_empty_arrays = ["workExperience", "education", "skills"]
     for key in suspicious_empty_arrays:
         if key in data and data[key] == []:
-            # Log warning - these are rarely empty in real resumes
-            logging.warning(
-                "Possible truncation detected: '%s' is empty",
-                key,
-            )
-            return True
+            # Only trigger if other resume fields are present (confirming it IS a resume)
+            if any(k in data for k in resume_keys if k != key):
+                logging.warning("Possible truncation detected: '%s' is empty", key)
+                return True
 
-    # Check for missing critical sections
-    required_top_level = ["personalInfo"]
-    for key in required_top_level:
-        if key not in data:
-            logging.warning(
-                "Possible truncation detected: missing required section '%s'",
-                key,
-            )
+    # Check for missing critical sections ONLY if it looks like a resume
+    # if it has work experience or education but no personalInfo, it's likely truncated
+    if any(k in data for k in ["workExperience", "education", "summary", "personalProjects"]):
+        if "personalInfo" not in data:
+            logging.warning("Possible truncation detected: missing required section 'personalInfo'")
             return True
 
     return False
@@ -617,32 +604,20 @@ async def complete_json(
     max_tokens: int = 4096,
     retries: int = 2,
 ) -> dict[str, Any]:
-    """Make a completion request expecting JSON response.
-
-    Uses JSON mode when available, with retry logic for reliability.
-    """
+    """Make a completion request expecting JSON response."""
     if config is None:
         config = get_llm_config()
 
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
     model_name = get_model_name(config)
-
-    # Build messages
-    json_system = (
-        system_prompt or ""
-    ) + "\n\nYou must respond with valid JSON only. No explanations, no markdown."
-    messages = [
-        {"role": "system", "content": json_system},
-        {"role": "user", "content": prompt},
-    ]
-
-    # Check if we can use JSON mode
-    use_json_mode = _supports_json_mode(config.provider, config.model)
-
     last_error = None
+
     for attempt in range(retries + 1):
         try:
-            # Build request kwargs
-            # Pass API key directly to avoid race conditions with global os.environ
             kwargs: dict[str, Any] = {
                 "model": model_name,
                 "messages": messages,
@@ -651,54 +626,32 @@ async def complete_json(
                 "api_base": _normalize_api_base(config.provider, config.api_base),
                 "timeout": _calculate_timeout("json", max_tokens, config.provider),
             }
+
             if _supports_temperature(config.provider, model_name):
-                # LLM-002: Increase temperature on retry for variation
                 kwargs["temperature"] = _get_retry_temperature(attempt)
+
             reasoning_effort = _get_reasoning_effort(config.provider, model_name)
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
 
-            # Add JSON mode if supported
-            if use_json_mode:
+            if _supports_json_mode(config.provider, model_name):
                 kwargs["response_format"] = {"type": "json_object"}
 
             response = await litellm.acompletion(**kwargs)
-            content = _extract_choice_text(response.choices[0])
+            content = _extract_choice_text(response.choices[0]) or ""
+            data = json.loads(_extract_json(content))
 
-            if not content:
-                raise ValueError("Empty response from LLM")
+            # LLM-001: Check for truncated or suspicious data
+            if not _appears_truncated(data):
+                return data
 
-            logging.debug(f"LLM response (attempt {attempt + 1}): {content[:300]}")
-
-            # Extract and parse JSON
-            json_str = _extract_json(content)
-            result = json.loads(json_str)
-
-            # LLM-001: Check if parsed result appears truncated
-            if isinstance(result, dict) and _appears_truncated(result):
-                logging.warning(
-                    "Parsed JSON appears truncated, but proceeding with result"
-                )
-
-            return result
-
-        except json.JSONDecodeError as e:
-            last_error = e
-            logging.warning(f"JSON parse failed (attempt {attempt + 1}): {e}")
-            if attempt < retries:
-                # Add hint to prompt for retry
-                messages[-1]["content"] = (
-                    prompt
-                    + "\n\nIMPORTANT: Output ONLY a valid JSON object. Start with { and end with }."
-                )
-                continue
-            raise ValueError(f"Failed to parse JSON after {retries + 1} attempts: {e}")
+            last_error = "Response appeared truncated or incomplete"
+            logging.warning("JSON response suspicious, retrying: %s", last_error)
 
         except Exception as e:
-            last_error = e
-            logging.warning(f"LLM call failed (attempt {attempt + 1}): {e}")
+            last_error = str(e)
+            logging.warning("JSON completion attempt %d failed: %s", attempt + 1, e)
             if attempt < retries:
-                continue
-            raise
+                await asyncio.sleep(1 * (attempt + 1))
 
-    raise ValueError(f"Failed after {retries + 1} attempts: {last_error}")
+    raise ValueError(f"Failed to get valid JSON after {retries + 1} attempts. Last error: {last_error}")

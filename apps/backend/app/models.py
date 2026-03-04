@@ -1,0 +1,44 @@
+from datetime import datetime, timezone
+from typing import Any, Optional
+from uuid import uuid4
+
+from sqlalchemy import Column, JSON, String, DateTime, Boolean
+from sqlmodel import Field, SQLModel
+
+
+class Resume(SQLModel, table=True):
+    """Resume model for SQL storage."""
+    resume_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    content: str = Field(sa_column=Column(String))
+    content_type: str = Field(default="md")
+    filename: Optional[str] = None
+    is_master: bool = Field(default=False, sa_column=Column(Boolean, index=True))
+    parent_id: Optional[str] = Field(default=None, index=True)
+    processed_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    processing_status: str = Field(default="pending", index=True)
+    cover_letter: Optional[str] = None
+    outreach_message: Optional[str] = None
+    title: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Job(SQLModel, table=True):
+    """Job description model for SQL storage."""
+    job_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    content: str = Field(sa_column=Column(String))
+    resume_id: Optional[str] = Field(default=None, index=True)
+    preview_hash: Optional[str] = None
+    preview_prompt_id: Optional[str] = None
+    preview_hashes: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Improvement(SQLModel, table=True):
+    """Improvement result model for SQL storage."""
+    request_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    original_resume_id: str = Field(index=True)
+    tailored_resume_id: str = Field(index=True)
+    job_id: str = Field(index=True)
+    improvements: list[dict[str, Any]] = Field(sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

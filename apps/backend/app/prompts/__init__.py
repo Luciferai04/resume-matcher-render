@@ -1,6 +1,7 @@
 """LLM prompt templates."""
 
 from app.prompts.templates import (
+    ATS_SCORE_PROMPT,
     CRITICAL_TRUTHFULNESS_RULES,
     DEFAULT_IMPROVE_PROMPT_ID,
     EXTRACT_KEYWORDS_PROMPT,
@@ -9,6 +10,7 @@ from app.prompts.templates import (
     IMPROVE_RESUME_PROMPT,
     IMPROVE_RESUME_PROMPTS,
     PARSE_RESUME_PROMPT,
+    SWOT_ANALYSIS_PROMPT,
     get_language_name,
 )
 
@@ -21,5 +23,7 @@ __all__ = [
     "DEFAULT_IMPROVE_PROMPT_ID",
     "CRITICAL_TRUTHFULNESS_RULES",
     "GENERATE_TITLE_PROMPT",
+    "ATS_SCORE_PROMPT",
+    "SWOT_ANALYSIS_PROMPT",
     "get_language_name",
 ]

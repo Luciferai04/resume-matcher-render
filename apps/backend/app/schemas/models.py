@@ -130,6 +130,8 @@ class PersonalInfo(BaseModel):
     linkedin: str | None = None
     github: str | None = None
 
+    model_config = {"extra": "allow"}
+
 
 class Experience(BaseModel):
     """Work experience entry."""
@@ -337,6 +339,8 @@ class ResumeData(BaseModel):
     # NEW: Section metadata and custom sections
     sectionMeta: list[SectionMeta] = Field(default_factory=list)
     customSections: dict[str, CustomSection] = Field(default_factory=dict)
+
+    model_config = {"extra": "allow"}
 
     @field_validator("summary", mode="before")
     @classmethod
@@ -684,3 +688,24 @@ class StatusResponse(BaseModel):
     llm_healthy: bool
     has_master_resume: bool
     database_stats: dict[str, Any]
+
+
+# New schemas for ATS Score and SWOT Analysis
+class ATSScoreBreakdown(BaseModel):
+    keywordMatch: int
+    structuralCompleteness: int
+    quantifiableImpact: int
+    formatting: int
+
+
+class ATSScoreResponse(BaseModel):
+    totalScore: int
+    breakdown: ATSScoreBreakdown
+    suggestions: list[str]
+
+
+class SWOTAnalysisResponse(BaseModel):
+    strengths: list[str]
+    weaknesses: list[str]
+    opportunities: list[str]
+    threats: list[str]

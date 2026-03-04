@@ -1,46 +1,74 @@
+version: '3.8'
+
 services:
-  resume-matcher:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Build args for customizing the frontend API URL at build time
-      # IMPORTANT: NEXT_PUBLIC_API_URL is baked into the JS bundle during build.
-      # If you change BACKEND_PORT, you must rebuild with matching NEXT_PUBLIC_API_URL:
-      #   BACKEND_PORT=9000 docker-compose build --build-arg NEXT_PUBLIC_API_URL=http://localhost:9000
-      args:
-        - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT:-8000}
-    image: resume-matcher
-    container_name: resume-matcher
-    # Port mapping: HOST_PORT:CONTAINER_PORT
-    # Customize host ports via environment variables (container ports are fixed)
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"   # Frontend (Next.js)
-      - "${BACKEND_PORT:-8000}:8000"    # Backend API (FastAPI)
-    volumes:
-      - resume-data:/app/backend/data
+  db:
+    image: postgres:16-alpine
+    container_name: rm-db
     environment:
-      - NODE_ENV=production
-      # Pass port configuration to container for internal use
-      - FRONTEND_PORT=${FRONTEND_PORT:-3000}
-      - BACKEND_PORT=${BACKEND_PORT:-8000}
-      # LLM Configuration - configure via Settings UI or set env vars for explicit overrides
-      # Supported providers: openai, anthropic, openrouter, gemini, deepseek, ollama
-      # Defaults are defined in apps/backend/app/config.py
-      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
-      - LLM_MODEL=${LLM_MODEL:-}
-      - LLM_API_KEY=${LLM_API_KEY:-}
-      # For Ollama running on host machine, use host.docker.internal:
-      # - LLM_API_BASE=http://host.docker.internal:11434
-      - LLM_API_BASE=${LLM_API_BASE:-}
-    restart: unless-stopped
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-resume_matcher}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
-      # Health check uses internal container port (always 8000)
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rm-redis
+    ports:
+      - "6380:6379"
+
+  backend:
+    build:
+      context: ./apps/backend
+    container_name: rm-backend
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-resume_matcher}
+      REDIS_URL: redis://redis:6379/0
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_API_KEY: ${LLM_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./apps/backend
+    container_name: rm-worker
+    command: celery -A app.worker.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-resume_matcher}
+      REDIS_URL: redis://redis:6379/0
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_API_KEY: ${LLM_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./apps/frontend
+    container_name: rm-frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
-  resume-data:
-    driver: local
+  postgres_data:

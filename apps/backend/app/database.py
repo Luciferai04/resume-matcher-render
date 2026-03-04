@@ -1,125 +1,132 @@
-"""TinyDB database layer for JSON storage."""
+"""Scalable SQL database layer using SQLModel."""
 
 import asyncio
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
-from tinydb import Query, TinyDB
-from tinydb.table import Table
+from sqlalchemy import select, delete, func, text
+from sqlmodel import Session, create_engine, SQLModel
 
 from app.config import settings
+from app.models import Resume, Job, Improvement
 
 logger = logging.getLogger(__name__)
 
 
+def _unwrap_row(obj: Any) -> Any:
+    """Unwrap a SQLAlchemy Row to get the underlying SQLModel instance.
+
+    session.exec(select(Model)).all() can return Row objects (tuples)
+    instead of model instances in some SQLModel/SQLAlchemy versions.
+    """
+    if hasattr(obj, "model_dump"):
+        return obj
+    # Row object - try to extract the first element (the model instance)
+    if hasattr(obj, "_tuple"):
+        return obj._tuple()[0]
+    if isinstance(obj, tuple):
+        return obj[0]
+    return obj
+
+
+def _to_dict(obj: Any) -> dict[str, Any]:
+    """Convert a SQLModel instance to a dict with ISO-formatted datetimes.
+
+    The rest of the codebase (routers, services) expects dicts with string
+    timestamps, matching the old TinyDB format.
+    """
+    unwrapped = _unwrap_row(obj)
+    data = unwrapped.model_dump()
+    for key, value in data.items():
+        if isinstance(value, datetime):
+            data[key] = value.isoformat()
+    return data
+
+
 class Database:
-    """TinyDB wrapper for resume matcher data."""
+    """SQL database wrapper for resume matcher data."""
 
     _master_resume_lock = asyncio.Lock()
 
-    def __init__(self, db_path: Path | None = None):
-        self.db_path = db_path or settings.db_path
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db: TinyDB | None = None
+    def __init__(self, db_url: Optional[str] = None):
+        self.db_url = db_url or settings.database_url
+        if self.db_url:
+            self.engine = create_engine(self.db_url)
+            SQLModel.metadata.create_all(self.engine)
+            logger.info("Initialized SQL database at %s", self.db_url)
+        else:
+            # Fallback to local SQLite for development
+            sqlite_path = settings.data_dir / "database.db"
+            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+            self.db_url = f"sqlite:///{sqlite_path}"
+            self.engine = create_engine(
+                self.db_url, connect_args={"check_same_thread": False}
+            )
+            SQLModel.metadata.create_all(self.engine)
+            logger.info("Initialized SQLite fallback database at %s", self.db_url)
 
-    @property
-    def db(self) -> TinyDB:
-        """Lazy initialization of TinyDB instance."""
-        if self._db is None:
-            self._db = TinyDB(self.db_path)
-        return self._db
-
-    @property
-    def resumes(self) -> Table:
-        """Resumes table."""
-        return self.db.table("resumes")
-
-    @property
-    def jobs(self) -> Table:
-        """Job descriptions table."""
-        return self.db.table("jobs")
-
-    @property
-    def improvements(self) -> Table:
-        """Improvement results table."""
-        return self.db.table("improvements")
-
-    def close(self) -> None:
-        """Close database connection."""
-        if self._db is not None:
-            self._db.close()
-            self._db = None
+    def get_session(self):
+        return Session(self.engine)
 
     # Resume operations
     def create_resume(
         self,
         content: str,
         content_type: str = "md",
-        filename: str | None = None,
+        filename: Optional[str] = None,
         is_master: bool = False,
-        parent_id: str | None = None,
-        processed_data: dict[str, Any] | None = None,
+        parent_id: Optional[str] = None,
+        processed_data: Optional[dict[str, Any]] = None,
         processing_status: str = "pending",
-        cover_letter: str | None = None,
-        outreach_message: str | None = None,
-        title: str | None = None,
+        cover_letter: Optional[str] = None,
+        outreach_message: Optional[str] = None,
+        title: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Create a new resume entry.
-
-        processing_status: "pending", "processing", "ready", "failed"
-        """
-        resume_id = str(uuid4())
-        now = datetime.now(timezone.utc).isoformat()
-
-        doc = {
-            "resume_id": resume_id,
-            "content": content,
-            "content_type": content_type,
-            "filename": filename,
-            "is_master": is_master,
-            "parent_id": parent_id,
-            "processed_data": processed_data,
-            "processing_status": processing_status,
-            "cover_letter": cover_letter,
-            "outreach_message": outreach_message,
-            "title": title,
-            "created_at": now,
-            "updated_at": now,
-        }
-        self.resumes.insert(doc)
-        return doc
+        """Create a new resume entry."""
+        resume = Resume(
+            content=content,
+            content_type=content_type,
+            filename=filename,
+            is_master=is_master,
+            parent_id=parent_id,
+            processed_data=processed_data,
+            processing_status=processing_status,
+            cover_letter=cover_letter,
+            outreach_message=outreach_message,
+            title=title,
+        )
+        with self.get_session() as session:
+            session.add(resume)
+            session.commit()
+            session.refresh(resume)
+            return _to_dict(resume)
 
     async def create_resume_atomic_master(
         self,
         content: str,
         content_type: str = "md",
-        filename: str | None = None,
-        processed_data: dict[str, Any] | None = None,
+        filename: Optional[str] = None,
+        processed_data: Optional[dict[str, Any]] = None,
         processing_status: str = "pending",
-        cover_letter: str | None = None,
-        outreach_message: str | None = None,
+        cover_letter: Optional[str] = None,
+        outreach_message: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Create a new resume with atomic master assignment.
-
-        Uses an asyncio.Lock to prevent race conditions when multiple uploads
-        happen concurrently and both try to become master. This avoids blocking
-        the FastAPI event loop unlike threading.Lock.
-        """
+        """Create a new resume with atomic master assignment."""
         async with self._master_resume_lock:
             current_master = self.get_master_resume()
             is_master = current_master is None
 
-            # Recovery behavior: if the current master is stuck in failed parsing
-            # state, promote the next upload to become the new master resume.
             if current_master and current_master.get("processing_status") == "failed":
-                Resume = Query()
-                self.resumes.update(
-                    {"is_master": False},
-                    Resume.resume_id == current_master["resume_id"],
-                )
+                with self.get_session() as session:
+                    stmt = select(Resume).where(Resume.resume_id == current_master["resume_id"])
+                    old_master = session.exec(stmt).first()
+                    if old_master:
+                        old_master.is_master = False
+                        session.add(old_master)
+                        session.commit()
                 is_master = True
 
             return self.create_resume(
@@ -133,96 +140,102 @@ class Database:
                 outreach_message=outreach_message,
             )
 
-    def get_resume(self, resume_id: str) -> dict[str, Any] | None:
+    def get_resume(self, resume_id: str) -> Optional[dict[str, Any]]:
         """Get resume by ID."""
-        Resume = Query()
-        result = self.resumes.search(Resume.resume_id == resume_id)
-        return result[0] if result else None
+        with self.get_session() as session:
+            resume = session.get(Resume, resume_id)
+            return _to_dict(resume) if resume else None
 
-    def get_master_resume(self) -> dict[str, Any] | None:
+    def get_master_resume(self) -> Optional[dict[str, Any]]:
         """Get the master resume if exists."""
-        Resume = Query()
-        result = self.resumes.search(Resume.is_master == True)
-        return result[0] if result else None
+        with self.get_session() as session:
+            statement = select(Resume).where(Resume.is_master == True)
+            resume = session.exec(statement).first()
+            return _to_dict(resume) if resume else None
 
     def update_resume(self, resume_id: str, updates: dict[str, Any]) -> dict[str, Any]:
-        """Update resume by ID.
+        """Update resume by ID."""
+        with self.get_session() as session:
+            resume = session.get(Resume, resume_id)
+            if not resume:
+                raise ValueError(f"Resume not found: {resume_id}")
 
-        Raises:
-            ValueError: If resume not found.
-        """
-        Resume = Query()
-        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-        updated_count = self.resumes.update(updates, Resume.resume_id == resume_id)
+            for key, value in updates.items():
+                if hasattr(resume, key):
+                    setattr(resume, key, value)
 
-        if not updated_count:
-            raise ValueError(f"Resume not found: {resume_id}")
-
-        result = self.get_resume(resume_id)
-        if not result:
-            raise ValueError(f"Resume disappeared after update: {resume_id}")
-
-        return result
+            resume.updated_at = datetime.now(timezone.utc)
+            session.add(resume)
+            session.commit()
+            session.refresh(resume)
+            return _to_dict(resume)
 
     def delete_resume(self, resume_id: str) -> bool:
         """Delete resume by ID."""
-        Resume = Query()
-        removed = self.resumes.remove(Resume.resume_id == resume_id)
-        return len(removed) > 0
+        with self.get_session() as session:
+            resume = session.get(Resume, resume_id)
+            if resume:
+                session.delete(resume)
+                session.commit()
+                return True
+            return False
 
     def list_resumes(self) -> list[dict[str, Any]]:
         """List all resumes."""
-        return list(self.resumes.all())
+        with self.get_session() as session:
+            statement = select(Resume)
+            resumes = session.exec(statement).all()
+            return [_to_dict(r) for r in resumes]
 
     def set_master_resume(self, resume_id: str) -> bool:
-        """Set a resume as the master, unsetting any existing master.
+        """Set a resume as the master."""
+        with self.get_session() as session:
+            target = session.get(Resume, resume_id)
+            if not target:
+                return False
 
-        Returns False if the resume doesn't exist.
-        """
-        Resume = Query()
+            current_masters = session.exec(
+                select(Resume).where(Resume.is_master == True)
+            ).all()
+            for row in current_masters:
+                m = _unwrap_row(row)
+                m.is_master = False
+                session.add(m)
 
-        # First verify the target resume exists
-        target = self.resumes.search(Resume.resume_id == resume_id)
-        if not target:
-            logger.warning("Cannot set master: resume %s not found", resume_id)
-            return False
-
-        # Unset current master
-        self.resumes.update({"is_master": False}, Resume.is_master == True)
-        # Set new master
-        updated = self.resumes.update(
-            {"is_master": True}, Resume.resume_id == resume_id
-        )
-        return len(updated) > 0
+            target.is_master = True
+            session.add(target)
+            session.commit()
+            return True
 
     # Job operations
-    def create_job(self, content: str, resume_id: str | None = None) -> dict[str, Any]:
+    def create_job(self, content: str, resume_id: Optional[str] = None) -> dict[str, Any]:
         """Create a new job description entry."""
-        job_id = str(uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        job = Job(content=content, resume_id=resume_id)
+        with self.get_session() as session:
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return _to_dict(job)
 
-        doc = {
-            "job_id": job_id,
-            "content": content,
-            "resume_id": resume_id,
-            "created_at": now,
-        }
-        self.jobs.insert(doc)
-        return doc
-
-    def get_job(self, job_id: str) -> dict[str, Any] | None:
+    def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
         """Get job by ID."""
-        Job = Query()
-        result = self.jobs.search(Job.job_id == job_id)
-        return result[0] if result else None
+        with self.get_session() as session:
+            job = session.get(Job, job_id)
+            return _to_dict(job) if job else None
 
-    def update_job(self, job_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+    def update_job(self, job_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Update a job by ID."""
-        Job = Query()
-        updated = self.jobs.update(updates, Job.job_id == job_id)
-        if not updated:
-            return None
-        return self.get_job(job_id)
+        with self.get_session() as session:
+            job = session.get(Job, job_id)
+            if not job:
+                return None
+            for key, value in updates.items():
+                if hasattr(job, key):
+                    setattr(job, key, value)
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return _to_dict(job)
 
     # Improvement operations
     def create_improvement(
@@ -233,52 +246,64 @@ class Database:
         improvements: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Create an improvement result entry."""
-        request_id = str(uuid4())
-        now = datetime.now(timezone.utc).isoformat()
-
-        doc = {
-            "request_id": request_id,
-            "original_resume_id": original_resume_id,
-            "tailored_resume_id": tailored_resume_id,
-            "job_id": job_id,
-            "improvements": improvements,
-            "created_at": now,
-        }
-        self.improvements.insert(doc)
-        return doc
+        imp = Improvement(
+            original_resume_id=original_resume_id,
+            tailored_resume_id=tailored_resume_id,
+            job_id=job_id,
+            improvements=improvements,
+        )
+        with self.get_session() as session:
+            session.add(imp)
+            session.commit()
+            session.refresh(imp)
+            return _to_dict(imp)
 
     def get_improvement_by_tailored_resume(
         self, tailored_resume_id: str
-    ) -> dict[str, Any] | None:
-        """Get improvement record by tailored resume ID.
-
-        This is used to retrieve the job context for on-demand
-        cover letter and outreach message generation.
-        """
-        Improvement = Query()
-        result = self.improvements.search(
-            Improvement.tailored_resume_id == tailored_resume_id
-        )
-        return result[0] if result else None
+    ) -> Optional[dict[str, Any]]:
+        """Get improvement record by tailored resume ID."""
+        with self.get_session() as session:
+            stmt = select(Improvement).where(
+                Improvement.tailored_resume_id == tailored_resume_id
+            )
+            result = session.exec(stmt).first()
+            return _to_dict(result) if result else None
 
     # Stats
     def get_stats(self) -> dict[str, Any]:
         """Get database statistics."""
-        return {
-            "total_resumes": len(self.resumes),
-            "total_jobs": len(self.jobs),
-            "total_improvements": len(self.improvements),
-            "has_master_resume": self.get_master_resume() is not None,
-        }
+        with self.get_session() as session:
+            total_resumes = session.scalar(
+                select(func.count()).select_from(Resume)
+            ) or 0
+            total_jobs = session.scalar(
+                select(func.count()).select_from(Job)
+            ) or 0
+            total_improvements = session.scalar(
+                select(func.count()).select_from(Improvement)
+            ) or 0
+            has_master = (
+                session.exec(
+                    select(Resume).where(Resume.is_master == True)
+                ).first()
+                is not None
+            )
+
+            return {
+                "total_resumes": int(total_resumes),
+                "total_jobs": int(total_jobs),
+                "total_improvements": int(total_improvements),
+                "has_master_resume": has_master,
+            }
 
     def reset_database(self) -> None:
-        """Reset the database by truncating all tables and clearing uploads."""
-        # Truncate tables
-        self.resumes.truncate()
-        self.jobs.truncate()
-        self.improvements.truncate()
+        """Reset the database."""
+        with self.get_session() as session:
+            session.exec(delete(Improvement))
+            session.exec(delete(Job))
+            session.exec(delete(Resume))
+            session.commit()
 
-        # Clear uploads directory
         uploads_dir = settings.data_dir / "uploads"
         if uploads_dir.exists():
             import shutil
@@ -289,3 +314,4 @@ class Database:
 
 # Global database instance
 db = Database()
+

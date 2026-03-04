@@ -343,3 +343,64 @@ Output the title only, nothing else."""
 
 # Alias for backward compatibility
 RESUME_SCHEMA = RESUME_SCHEMA_EXAMPLE
+
+ATS_SCORE_PROMPT = """Analyze the resume against the job description and provide an ATS (Applicant Tracking System) score.
+
+IMPORTANT: Write in {output_language}.
+
+Job Description:
+{job_description}
+
+Keywords:
+{job_keywords}
+
+Resume (JSON):
+{resume_data}
+
+Rules:
+1. Provide a total score between 0 and 100.
+2. Breakdown the score into:
+   - "keywordMatch": How many required keywords appear in the resume (0-40).
+   - "structuralCompleteness": Does it have all standard sections (0-20).
+   - "quantifiableImpact": Are there numbers and action verbs (0-30).
+   - "formatting": General readability and structure (0-10).
+3. Provide 3-5 specific suggestions for improvement to increase the score.
+
+Output ONLY a JSON object with this format:
+{{
+  "totalScore": 85,
+  "breakdown": {{
+    "keywordMatch": 35,
+    "structuralCompleteness": 20,
+    "quantifiableImpact": 20,
+    "formatting": 10
+  }},
+  "suggestions": [
+    "Add more metrics to your work experience",
+    "Include missing keyword 'Kubernetes'"
+  ]
+}}"""
+
+SWOT_ANALYSIS_PROMPT = """Perform a SWOT analysis for this candidate based on their resume and the job description.
+
+IMPORTANT: Write in {output_language}.
+
+Job Description:
+{job_description}
+
+Resume (JSON):
+{resume_data}
+
+Provide exactly 3 items for each category:
+- **Strengths**: What makes them a great fit?
+- **Weaknesses**: What's missing or could be a concern?
+- **Opportunities**: Recommendations to improve their candidacy.
+- **Threats**: External factors or major gaps.
+
+Output ONLY a JSON object with this format:
+{{
+  "strengths": ["...", "...", "..."],
+  "weaknesses": ["...", "...", "..."],
+  "opportunities": ["...", "...", "..."],
+  "threats": ["...", "...", "..."]
+}}"""

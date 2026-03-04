@@ -133,13 +133,23 @@ async def _render_page_to_pdf(
     pdf_format: str,
     pdf_margins: dict,
 ) -> bytes:
+    # Set viewport to match target page size width at 96 DPI
+    # A4: 210mm (~794px), Letter: 215.9mm (~816px)
+    width = 794 if pdf_format.upper() == "A4" else 816
+    await page.set_viewport_size({"width": width, "height": 1123})
+    
     await page.goto(url, wait_until="networkidle")
     await page.wait_for_selector(selector)
     await page.evaluate("document.fonts.ready")
+    
+    # Add a small delay for any animations or fonts to fully settle
+    await asyncio.sleep(1.0)
+    
     return await page.pdf(
         format=pdf_format,
         print_background=True,
         margin=pdf_margins,
+        prefer_css_page_size=False,
     )
 
 

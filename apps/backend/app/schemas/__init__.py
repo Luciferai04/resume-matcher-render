@@ -48,6 +48,9 @@ from app.schemas.models import (
     UpdateCoverLetterRequest,
     UpdateOutreachMessageRequest,
     UpdateTitleRequest,
+    normalize_resume_data,
+    ATSScoreResponse,
+    SWOTAnalysisResponse,
 )
 
 __all__ = [
@@ -98,4 +101,6 @@ __all__ = [
     "GenerateContentResponse",
     "HealthResponse",
     "StatusResponse",
+    "ATSScoreResponse",
+    "SWOTAnalysisResponse",
 ]
