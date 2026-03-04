@@ -14,10 +14,9 @@ services:
   # FastAPI Backend Service
   - type: web
     name: rm-backend
-    runtime: image
-    image:
-      dockerfilePath: apps/backend/Dockerfile
-      context: apps/backend
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
     plan: free
     healthCheckPath: /api/v1/health
     envVars:
@@ -43,10 +42,9 @@ services:
   # Celery Background Worker
   - type: worker
     name: rm-worker
-    runtime: image
-    image:
-      dockerfilePath: apps/backend/Dockerfile
-      context: apps/backend
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
     dockerCommand: celery -A app.worker.celery_app worker --loglevel=info
     plan: free
     envVars:
@@ -70,10 +68,9 @@ services:
   # Next.js Frontend Service
   - type: web
     name: rm-frontend
-    runtime: image
-    image:
-      dockerfilePath: apps/frontend/Dockerfile
-      context: apps/frontend
+    runtime: docker
+    dockerfilePath: apps/frontend/Dockerfile
+    dockerContext: apps/frontend
     plan: free
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
