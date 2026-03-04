@@ -4,6 +4,8 @@
  * Single source of truth for API configuration and base fetch utilities.
  */
 
+import { getUserId } from './auth';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export const API_BASE = `${API_URL}/api/v1`;
 
@@ -13,7 +15,15 @@ export const API_BASE = `${API_URL}/api/v1`;
  */
 export async function apiFetch(endpoint: string, options?: RequestInit): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
-  return fetch(url, options);
+
+  // Inject X-User-ID header for multi-tenancy
+  const headers = new Headers(options?.headers);
+  headers.set('X-User-ID', getUserId());
+
+  return fetch(url, {
+    ...options,
+    headers,
+  });
 }
 
 /**

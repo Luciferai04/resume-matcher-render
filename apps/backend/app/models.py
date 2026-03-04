@@ -2,13 +2,31 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, JSON, String, DateTime, Boolean
+from sqlalchemy import Column, JSON, String, DateTime, Boolean, ForeignKey
 from sqlmodel import Field, SQLModel
+
+
+class Cohort(SQLModel, table=True):
+    """Cohort model for SQL storage."""
+    cohort_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    name: str = Field(index=True)
+    start_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class User(SQLModel, table=True):
+    """User model for SQL storage."""
+    user_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    name: str
+    email: Optional[str] = Field(default=None, index=True)
+    cohort_id: Optional[str] = Field(default=None, foreign_key="cohort.cohort_id", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Resume(SQLModel, table=True):
     """Resume model for SQL storage."""
     resume_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="user.user_id", index=True)
     content: str = Field(sa_column=Column(String))
     content_type: str = Field(default="md")
     filename: Optional[str] = None
@@ -26,6 +44,7 @@ class Resume(SQLModel, table=True):
 class Job(SQLModel, table=True):
     """Job description model for SQL storage."""
     job_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="user.user_id", index=True)
     content: str = Field(sa_column=Column(String))
     resume_id: Optional[str] = Field(default=None, index=True)
     preview_hash: Optional[str] = None

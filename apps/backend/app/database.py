@@ -11,7 +11,7 @@ from sqlalchemy import select, delete, func, text
 from sqlmodel import Session, create_engine, SQLModel
 
 from app.config import settings
-from app.models import Resume, Job, Improvement
+from app.models import Resume, Job, Improvement, User, Cohort
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,43 @@ class Database:
     def get_session(self):
         return Session(self.engine)
 
+    # User / Cohort operations
+    def create_cohort(self, name: str, start_date: Optional[datetime] = None) -> dict[str, Any]:
+        """Create a new cohort."""
+        cohort = Cohort(name=name, start_date=start_date or datetime.now(timezone.utc))
+        with self.get_session() as session:
+            session.add(cohort)
+            session.commit()
+            session.refresh(cohort)
+            return _to_dict(cohort)
+
+    def get_cohort(self, cohort_id: str) -> Optional[dict[str, Any]]:
+        """Get cohort by ID."""
+        with self.get_session() as session:
+            cohort = session.get(Cohort, cohort_id)
+            return _to_dict(cohort) if cohort else None
+
+    def create_user(self, name: str, email: str, cohort_id: Optional[str] = None) -> dict[str, Any]:
+        """Create a new user."""
+        user = User(name=name, email=email, cohort_id=cohort_id)
+        with self.get_session() as session:
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            return _to_dict(user)
+
+    def get_user(self, user_id: str) -> Optional[dict[str, Any]]:
+        """Get user by ID."""
+        with self.get_session() as session:
+            user = session.get(User, user_id)
+            return _to_dict(user) if user else None
+
+    def get_users_by_cohort(self, cohort_id: str) -> list[dict[str, Any]]:
+        """Get users in a cohort."""
+        with self.get_session() as session:
+            users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
+            return [_to_dict(u) for u in users]
+
     # Resume operations
     def create_resume(
         self,
@@ -84,9 +121,11 @@ class Database:
         cover_letter: Optional[str] = None,
         outreach_message: Optional[str] = None,
         title: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """Create a new resume entry."""
         resume = Resume(
+            user_id=user_id,
             content=content,
             content_type=content_type,
             filename=filename,
@@ -113,10 +152,11 @@ class Database:
         processing_status: str = "pending",
         cover_letter: Optional[str] = None,
         outreach_message: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """Create a new resume with atomic master assignment."""
         async with self._master_resume_lock:
-            current_master = self.get_master_resume()
+            current_master = self.get_master_resume(user_id=user_id)
             is_master = current_master is None
 
             if current_master and current_master.get("processing_status") == "failed":
@@ -138,26 +178,31 @@ class Database:
                 processing_status=processing_status,
                 cover_letter=cover_letter,
                 outreach_message=outreach_message,
+                user_id=user_id,
             )
 
-    def get_resume(self, resume_id: str) -> Optional[dict[str, Any]]:
+    def get_resume(self, resume_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get resume by ID."""
         with self.get_session() as session:
             resume = session.get(Resume, resume_id)
+            if resume and user_id and resume.user_id != user_id:
+                return None
             return _to_dict(resume) if resume else None
 
-    def get_master_resume(self) -> Optional[dict[str, Any]]:
+    def get_master_resume(self, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get the master resume if exists."""
         with self.get_session() as session:
             statement = select(Resume).where(Resume.is_master == True)
+            if user_id:
+                statement = statement.where(Resume.user_id == user_id)
             resume = session.exec(statement).first()
             return _to_dict(resume) if resume else None
 
-    def update_resume(self, resume_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+    def update_resume(self, resume_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> dict[str, Any]:
         """Update resume by ID."""
         with self.get_session() as session:
             resume = session.get(Resume, resume_id)
-            if not resume:
+            if not resume or (user_id and resume.user_id != user_id):
                 raise ValueError(f"Resume not found: {resume_id}")
 
             for key, value in updates.items():
@@ -170,33 +215,37 @@ class Database:
             session.refresh(resume)
             return _to_dict(resume)
 
-    def delete_resume(self, resume_id: str) -> bool:
+    def delete_resume(self, resume_id: str, user_id: Optional[str] = None) -> bool:
         """Delete resume by ID."""
         with self.get_session() as session:
             resume = session.get(Resume, resume_id)
-            if resume:
+            if resume and (not user_id or resume.user_id == user_id):
                 session.delete(resume)
                 session.commit()
                 return True
             return False
 
-    def list_resumes(self) -> list[dict[str, Any]]:
+    def list_resumes(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
         """List all resumes."""
         with self.get_session() as session:
             statement = select(Resume)
+            if user_id:
+                statement = statement.where(Resume.user_id == user_id)
             resumes = session.exec(statement).all()
             return [_to_dict(r) for r in resumes]
 
-    def set_master_resume(self, resume_id: str) -> bool:
+    def set_master_resume(self, resume_id: str, user_id: Optional[str] = None) -> bool:
         """Set a resume as the master."""
         with self.get_session() as session:
             target = session.get(Resume, resume_id)
-            if not target:
+            if not target or (user_id and target.user_id != user_id):
                 return False
 
-            current_masters = session.exec(
-                select(Resume).where(Resume.is_master == True)
-            ).all()
+            query = select(Resume).where(Resume.is_master == True)
+            if user_id:
+                query = query.where(Resume.user_id == user_id)
+                
+            current_masters = session.exec(query).all()
             for row in current_masters:
                 m = _unwrap_row(row)
                 m.is_master = False
@@ -208,26 +257,28 @@ class Database:
             return True
 
     # Job operations
-    def create_job(self, content: str, resume_id: Optional[str] = None) -> dict[str, Any]:
+    def create_job(self, content: str, resume_id: Optional[str] = None, user_id: Optional[str] = None) -> dict[str, Any]:
         """Create a new job description entry."""
-        job = Job(content=content, resume_id=resume_id)
+        job = Job(content=content, resume_id=resume_id, user_id=user_id)
         with self.get_session() as session:
             session.add(job)
             session.commit()
             session.refresh(job)
             return _to_dict(job)
 
-    def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
+    def get_job(self, job_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get job by ID."""
         with self.get_session() as session:
             job = session.get(Job, job_id)
+            if job and user_id and job.user_id != user_id:
+                return None
             return _to_dict(job) if job else None
 
-    def update_job(self, job_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def update_job(self, job_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Update a job by ID."""
         with self.get_session() as session:
             job = session.get(Job, job_id)
-            if not job:
+            if not job or (user_id and job.user_id != user_id):
                 return None
             for key, value in updates.items():
                 if hasattr(job, key):
@@ -302,6 +353,8 @@ class Database:
             session.exec(delete(Improvement))
             session.exec(delete(Job))
             session.exec(delete(Resume))
+            session.exec(delete(User))
+            session.exec(delete(Cohort))
             session.commit()
 
         uploads_dir = settings.data_dir / "uploads"
