@@ -47,7 +47,7 @@ services:
     dockerContext: apps/frontend
     plan: free
     envVars:
-      - key: BACKEND_API_URL
+      - key: NEXT_PUBLIC_API_URL
         fromService:
           type: web
           name: rm-backend
