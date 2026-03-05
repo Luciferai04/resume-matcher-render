@@ -254,8 +254,8 @@ def get_model_name(config: LLMConfig) -> str:
         "openai": "",  # OpenAI models don't need prefix
         "anthropic": "anthropic/",
         "openrouter": "openrouter/",
-        "gemini": "gemini/",
-        "google": "gemini/",
+        "gemini": "",
+        "google": "",
         "deepseek": "deepseek/",
         "ollama": "ollama/",
     }
@@ -337,7 +337,7 @@ async def check_llm_health(
             "timeout": LLM_TIMEOUT_HEALTH_CHECK,
         }
         if config.provider in ["google", "gemini"]:
-            kwargs["custom_llm_provider"] = "gemini"
+            kwargs["custom_llm_provider"] = "google_ai"
             
         reasoning_effort = _get_reasoning_effort(config.provider, model_name)
         if reasoning_effort:
@@ -429,7 +429,7 @@ async def complete(
         import os
         if config.api_key:
             os.environ["GEMINI_API_KEY"] = config.api_key
-        kwargs["custom_llm_provider"] = "gemini"
+        kwargs["custom_llm_provider"] = "google_ai"
 
     if _supports_temperature(config.provider, model_name):
         kwargs["temperature"] = temperature
@@ -645,7 +645,7 @@ async def complete_json(
                 import os
                 if config.api_key:
                     os.environ["GEMINI_API_KEY"] = config.api_key
-                kwargs["custom_llm_provider"] = "gemini"
+                kwargs["custom_llm_provider"] = "google_ai"
 
             if _supports_temperature(config.provider, model_name):
                 kwargs["temperature"] = _get_retry_temperature(attempt)
