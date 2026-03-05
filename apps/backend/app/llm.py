@@ -255,6 +255,7 @@ def get_model_name(config: LLMConfig) -> str:
         "anthropic": "anthropic/",
         "openrouter": "openrouter/",
         "gemini": "gemini/",
+        "google": "gemini/",
         "deepseek": "deepseek/",
         "ollama": "ollama/",
     }
