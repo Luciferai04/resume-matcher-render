@@ -332,6 +332,9 @@ async def check_llm_health(
             "api_base": _normalize_api_base(config.provider, config.api_base),
             "timeout": LLM_TIMEOUT_HEALTH_CHECK,
         }
+        if config.provider in ["google", "gemini"]:
+            kwargs["custom_llm_provider"] = "gemini"
+            
         reasoning_effort = _get_reasoning_effort(config.provider, model_name)
         if reasoning_effort:
             kwargs["reasoning_effort"] = reasoning_effort
@@ -417,6 +420,9 @@ async def complete(
         "api_base": _normalize_api_base(config.provider, config.api_base),
         "timeout": _calculate_timeout("completion", max_tokens, config.provider),
     }
+
+    if config.provider in ["google", "gemini"]:
+        kwargs["custom_llm_provider"] = "gemini"
 
     if _supports_temperature(config.provider, model_name):
         kwargs["temperature"] = temperature
@@ -627,6 +633,9 @@ async def complete_json(
                 "api_base": _normalize_api_base(config.provider, config.api_base),
                 "timeout": _calculate_timeout("json", max_tokens, config.provider),
             }
+
+            if config.provider in ["google", "gemini"]:
+                kwargs["custom_llm_provider"] = "gemini"
 
             if _supports_temperature(config.provider, model_name):
                 kwargs["temperature"] = _get_retry_temperature(attempt)
