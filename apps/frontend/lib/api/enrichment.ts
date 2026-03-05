@@ -52,7 +52,6 @@ export interface EnhancementPreview {
 export async function analyzeResume(resumeId: string): Promise<AnalysisResponse> {
   const res = await apiFetch(`/enrichment/analyze/${resumeId}`, {
     method: 'POST',
-    credentials: 'include',
   });
 
   if (!res.ok) {

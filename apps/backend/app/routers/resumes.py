@@ -9,6 +9,7 @@ import unicodedata
 from collections.abc import Awaitable
 from pathlib import Path
 from typing import Any, NoReturn, Optional
+from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
 from fastapi.responses import Response
 

@@ -48,7 +48,7 @@ export interface LLMHealthCheck {
 
 // Fetch full LLM configuration
 export async function fetchLlmConfig(): Promise<LLMConfig> {
-  const res = await apiFetch('/config/llm-api-key', { credentials: 'include' });
+  const res = await apiFetch('/config/llm-api-key', {});
 
   if (!res.ok) {
     throw new Error(`Failed to load LLM config (status ${res.status}).`);
@@ -68,7 +68,7 @@ export async function updateLlmConfig(config: LLMConfigUpdate): Promise<LLMConfi
   const res = await apiFetch('/config/llm-api-key', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+
     body: JSON.stringify(config),
   });
 
@@ -90,7 +90,7 @@ export async function updateLlmApiKey(value: string): Promise<string> {
 export async function testLlmConnection(config?: LLMConfigUpdate): Promise<LLMHealthCheck> {
   const options: RequestInit = {
     method: 'POST',
-    credentials: 'include',
+
   };
 
   // If config provided, send it in the request body
@@ -110,7 +110,7 @@ export async function testLlmConnection(config?: LLMConfigUpdate): Promise<LLMHe
 
 // Fetch system status
 export async function fetchSystemStatus(): Promise<SystemStatus> {
-  const res = await apiFetch('/status', { credentials: 'include' });
+  const res = await apiFetch('/status', {});
 
   if (!res.ok) {
     throw new Error(`Failed to fetch system status (status ${res.status}).`);
@@ -149,7 +149,7 @@ export interface FeatureConfigUpdate {
 
 // Fetch feature configuration
 export async function fetchFeatureConfig(): Promise<FeatureConfig> {
-  const res = await apiFetch('/config/features', { credentials: 'include' });
+  const res = await apiFetch('/config/features', {});
 
   if (!res.ok) {
     throw new Error(`Failed to load feature config (status ${res.status}).`);
@@ -163,7 +163,7 @@ export async function updateFeatureConfig(config: FeatureConfigUpdate): Promise<
   const res = await apiFetch('/config/features', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+
     body: JSON.stringify(config),
   });
 
@@ -191,7 +191,7 @@ export interface LanguageConfigUpdate {
 
 // Fetch language configuration
 export async function fetchLanguageConfig(): Promise<LanguageConfig> {
-  const res = await apiFetch('/config/language', { credentials: 'include' });
+  const res = await apiFetch('/config/language', {});
 
   if (!res.ok) {
     throw new Error(`Failed to load language config (status ${res.status}).`);
@@ -205,7 +205,7 @@ export async function updateLanguageConfig(update: LanguageConfigUpdate): Promis
   const res = await apiFetch('/config/language', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+
     body: JSON.stringify(update),
   });
 
@@ -234,7 +234,7 @@ export interface PromptConfigUpdate {
 
 // Fetch prompt configuration
 export async function fetchPromptConfig(): Promise<PromptConfig> {
-  const res = await apiFetch('/config/prompts', { credentials: 'include' });
+  const res = await apiFetch('/config/prompts', {});
 
   if (!res.ok) {
     throw new Error(`Failed to load prompt config (status ${res.status}).`);
@@ -248,7 +248,7 @@ export async function updatePromptConfig(update: PromptConfigUpdate): Promise<Pr
   const res = await apiFetch('/config/prompts', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+
     body: JSON.stringify(update),
   });
 
@@ -288,17 +288,17 @@ export interface ApiKeysUpdateResponse {
 
 // Provider display names for API keys
 export const API_KEY_PROVIDER_INFO: Record<ApiKeyProvider, { name: string; description: string }> =
-  {
-    openai: { name: 'OpenAI', description: 'GPT-4, GPT-4o, etc.' },
-    anthropic: { name: 'Anthropic', description: 'Claude 3.5, Claude 4, etc.' },
-    google: { name: 'Google', description: 'Gemini 1.5, Gemini 2, etc.' },
-    openrouter: { name: 'OpenRouter', description: 'Access multiple providers' },
-    deepseek: { name: 'DeepSeek', description: 'DeepSeek chat models' },
-  };
+{
+  openai: { name: 'OpenAI', description: 'GPT-4, GPT-4o, etc.' },
+  anthropic: { name: 'Anthropic', description: 'Claude 3.5, Claude 4, etc.' },
+  google: { name: 'Google', description: 'Gemini 1.5, Gemini 2, etc.' },
+  openrouter: { name: 'OpenRouter', description: 'Access multiple providers' },
+  deepseek: { name: 'DeepSeek', description: 'DeepSeek chat models' },
+};
 
 // Fetch API key status for all providers
 export async function fetchApiKeyStatus(): Promise<ApiKeyStatusResponse> {
-  const res = await apiFetch('/config/api-keys', { credentials: 'include' });
+  const res = await apiFetch('/config/api-keys', {});
 
   if (!res.ok) {
     throw new Error(`Failed to load API key status (status ${res.status}).`);
@@ -312,7 +312,7 @@ export async function updateApiKeys(keys: ApiKeysUpdateRequest): Promise<ApiKeys
   const res = await apiFetch('/config/api-keys', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+
     body: JSON.stringify(keys),
   });
 
@@ -328,7 +328,7 @@ export async function updateApiKeys(keys: ApiKeysUpdateRequest): Promise<ApiKeys
 export async function deleteApiKey(provider: ApiKeyProvider): Promise<void> {
   const res = await apiFetch(`/config/api-keys/${provider}`, {
     method: 'DELETE',
-    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -341,7 +341,7 @@ export async function deleteApiKey(provider: ApiKeyProvider): Promise<void> {
 export async function clearAllApiKeys(): Promise<void> {
   const res = await apiFetch('/config/api-keys?confirm=CLEAR_ALL_KEYS', {
     method: 'DELETE',
-    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -354,7 +354,7 @@ export async function clearAllApiKeys(): Promise<void> {
 export async function resetDatabase(): Promise<void> {
   const res = await apiFetch('/config/reset', {
     method: 'POST',
-    credentials: 'include',
+
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirm: 'RESET_ALL_DATA' }),
   });
