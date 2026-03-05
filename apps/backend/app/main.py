@@ -49,7 +49,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["X-User-ID", "Content-Type", "Accept", "Origin", "Authorization"],
 )
 
 # Include routers
