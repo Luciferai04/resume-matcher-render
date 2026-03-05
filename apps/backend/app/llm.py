@@ -323,6 +323,10 @@ async def check_llm_health(
 
     prompt = test_prompt or "Hi"
     try:
+        import os
+        if config.provider in ["google", "gemini"] and config.api_key:
+            os.environ["GEMINI_API_KEY"] = config.api_key
+
         model_name = get_model_name(config)
         kwargs: dict[str, Any] = {
             "model": model_name,
@@ -422,6 +426,9 @@ async def complete(
     }
 
     if config.provider in ["google", "gemini"]:
+        import os
+        if config.api_key:
+            os.environ["GEMINI_API_KEY"] = config.api_key
         kwargs["custom_llm_provider"] = "gemini"
 
     if _supports_temperature(config.provider, model_name):
@@ -635,6 +642,9 @@ async def complete_json(
             }
 
             if config.provider in ["google", "gemini"]:
+                import os
+                if config.api_key:
+                    os.environ["GEMINI_API_KEY"] = config.api_key
                 kwargs["custom_llm_provider"] = "gemini"
 
             if _supports_temperature(config.provider, model_name):
