@@ -362,13 +362,28 @@ async def upload_resume(
         user_id=user_id,
     )
 
-    # Trigger background processing (scalability fix)
-    from app.worker import process_resume_task
-    process_resume_task.delay(resume["resume_id"])
-    
-    # Update status to processing
-    db.update_resume(resume["resume_id"], {"processing_status": "processing"}, user_id=user_id)
-    resume["processing_status"] = "processing"
+    # Trigger background processing with fallback to inline
+    try:
+        from app.worker import process_resume_task
+        process_resume_task.delay(resume["resume_id"])
+        # Update status to processing
+        db.update_resume(resume["resume_id"], {"processing_status": "processing"}, user_id=user_id)
+        resume["processing_status"] = "processing"
+    except Exception as worker_err:
+        logger.warning("Celery dispatch failed, falling back to inline processing: %s", worker_err)
+        try:
+            processed_data = await parse_resume_to_json(markdown_content)
+            db.update_resume(resume["resume_id"], {
+                "processed_data": processed_data,
+                "processing_status": "ready",
+            }, user_id=user_id)
+            resume["processing_status"] = "ready"
+        except Exception as parse_err:
+            logger.error("Inline processing also failed: %s", parse_err)
+            db.update_resume(resume["resume_id"], {
+                "processing_status": "failed",
+            }, user_id=user_id)
+            resume["processing_status"] = "failed"
 
     # Return accurate status to client
     return ResumeUploadResponse(
