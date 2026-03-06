@@ -24,9 +24,11 @@ def get_current_user(x_user_id: Optional[str] = Header(None, alias="X-User-ID"))
                 )
                 logger.info(f"Successfully auto-provisioned user {x_user_id}")
             except Exception as e:
-                logger.error(f"Failed to auto-provision user {x_user_id}: {e}")
-                # We don't raise here to allow the primary request to attempt to proceed
-                # though it will likely fail with a Foreign Key violation later.
+                # Handle race condition where user was created between get_user and create_user
+                if "already exists" in str(e).lower() or "unique constraint" in str(e).lower():
+                    logger.info(f"User {x_user_id} was created by a concurrent request.")
+                else:
+                    logger.error(f"Failed to auto-provision user {x_user_id}: {e}")
         else:
             logger.debug(f"User {x_user_id} already exists.")
     else:

@@ -26,7 +26,7 @@ def process_resume_task(resume_id: str):
     Background task to parse and process resume content using LLM.
     """
     from app.database import db
-    from app.routers.resumes import parse_resume_to_json
+    from app.services.parser import parse_resume_to_json
     import asyncio
 
     logger.info(f"Starting background processing for resume {resume_id}")

@@ -326,6 +326,7 @@ async def check_llm_health(
         import os
         if config.provider in ["google", "gemini"] and config.api_key:
             os.environ["GEMINI_API_KEY"] = config.api_key
+            os.environ["GOOGLE_API_KEY"] = config.api_key
 
         model_name = get_model_name(config)
         kwargs: dict[str, Any] = {
@@ -427,6 +428,7 @@ async def complete(
         import os
         if config.api_key:
             os.environ["GEMINI_API_KEY"] = config.api_key
+            os.environ["GOOGLE_API_KEY"] = config.api_key
 
     if _supports_temperature(config.provider, model_name):
         kwargs["temperature"] = temperature
@@ -642,6 +644,7 @@ async def complete_json(
                 import os
                 if config.api_key:
                     os.environ["GEMINI_API_KEY"] = config.api_key
+                    os.environ["GOOGLE_API_KEY"] = config.api_key
 
             if _supports_temperature(config.provider, model_name):
                 kwargs["temperature"] = _get_retry_temperature(attempt)

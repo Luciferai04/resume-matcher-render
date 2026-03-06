@@ -5,14 +5,20 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 
+# Configure logging at the very start
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Fix for Windows: Use ProactorEventLoop for subprocess support (Playwright)
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-logger = logging.getLogger(__name__)
-from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.config import settings
