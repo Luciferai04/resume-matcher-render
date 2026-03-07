@@ -62,9 +62,11 @@ services:
   frontend:
     build:
       context: ./apps/frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: rm-frontend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
     depends_on:
