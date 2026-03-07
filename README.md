@@ -6,7 +6,7 @@
 
 **An AI-Powered, Multi-Tenant ATS Resume Tailoring Platform**
 
-[𝙹𝚘𝚒𝚗 𝙳𝚒𝚜𝚌𝚘𝚛𝚍](https://dsc.gg/resume-matcher) ✦ [𝚆𝚎𝚋𝚜𝚒𝚝𝚎](https://resumematcher.fyi) ✦ [𝙷𝚘𝚠 𝚝𝚘 𝙸𝚗𝚜𝚝𝚊𝚕𝚕](#how-to-install) ✦ [𝙰𝚛𝚌𝚑𝚒𝚝𝚎𝚌𝚝𝚞𝚛𝚎](#architecture) ✦ [𝙼𝚞𝚕𝚝𝚒-𝚃𝚎𝚗𝚊𝚗𝚌𝚢](#multi-tenant-architecture) ✦ [𝙳𝚎𝚙𝚕𝚘𝚢𝚖𝚎𝚗𝚝](#deployment-on-render)
+[𝙹𝚘𝚒𝚗 𝙳𝚒𝚜𝚌𝚘𝚛𝚍](https://dsc.gg/resume-matcher) ✦ [𝚆𝚎𝚋𝚜𝚒𝚝𝚎](https://resumematcher.fyi) ✦ [𝙷𝚘𝚠 𝚝𝚘 𝙸𝚗𝚜𝚝𝚊𝚕𝚕](#how-to-install) ✦ [𝙰𝚛𝚌𝚑𝚒𝚝𝚎𝚌𝚝𝚞𝚛𝚎](#architecture) ✦ [𝙼𝚞𝚕𝚝𝚒-𝚃𝚎𝚗𝚊𝚗𝚌𝚢](#multi-tenant-architecture) ✦ [𝙳𝚎𝚙𝚕𝚘𝚢𝚖𝚎𝚗𝚝](#deployment-on-railway)
 
 **English** | [Español](README.es.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
@@ -45,7 +45,7 @@ Create tailored resumes for each job application with AI-powered suggestions. Bu
 - [Multi-Tenant Architecture](#multi-tenant-architecture)
 - [How It Works](#how-it-works)
 - [How to Install](#how-to-install)
-- [Deployment on Render](#deployment-on-render)
+- [Deployment on Railway](#deployment-on-railway)
 - [API Reference](#api-reference)
 - [Tech Stack](#tech-stack)
 - [Sponsors](#sponsors)
@@ -167,7 +167,7 @@ Resume-Matcher/
 │       │       └── auth.ts    # User identity management (localStorage)
 │       └── Dockerfile
 │
-├── render.yaml                # Render Blueprint for one-click deployment
+├── railway.json               # Railway configuration for deployment
 ├── docker-compose.yml         # Local Docker development
 └── Makefile                   # Development shortcuts
 ```
@@ -448,88 +448,44 @@ docker compose up --build
 
 ---
 
-## Deployment on Render
+## Deployment on Railway
 
-Resume Matcher ships with a **Render Blueprint** (`render.yaml`) for one-click cloud deployment on [Render](https://render.com).
+Resume Matcher is configured for fast, reliable cloud deployment on [Railway.app](https://railway.app). The repository includes a `railway.json` file to establish Docker configurations as standard for Railway templates.
 
 ### What Gets Deployed
 
 | Service | Type | Plan | Description |
 |---------|------|------|-------------|
-| **rm-backend** | Web Service (Docker) | Free | FastAPI backend + Celery worker (consolidated) |
-| **rm-frontend** | Web Service (Docker) | Free | Next.js frontend |
-| **rm-database** | PostgreSQL | Free | Managed PostgreSQL 18 database |
-| **rm-redis** | Redis (Valkey 8) | Free | Message broker for Celery tasks |
+| **rm-backend** | Web Service (Docker) | Hobby/Pro | FastAPI backend + Celery worker (consolidated) |
+| **rm-frontend** | Web Service (Docker) | Hobby/Pro | Next.js frontend |
+| **rm-database** | PostgreSQL | Managed | Managed PostgreSQL database |
+| **rm-redis** | Redis | Managed | Message broker for Celery tasks |
 
 ### How to Deploy
 
 1. **Fork or push** this repository to your GitHub account
-2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
-3. Connect your repository and select the branch with `render.yaml`
-4. Fill in the required environment variables:
+2. Go to [Railway Dashboard](https://railway.app/dashboard) → **New Project** → **Deploy from GitHub repo**
+3. Select your repository. Railway will automatically detect the monorepo structure and prompt you to set up services for `apps/frontend` and `apps/backend`.
+4. Add **PostgreSQL** and **Redis** from the **New** button in the canvas.
+5. Provide the backend with the connection URLs by right-clicking the Database and Redis services and selecting "Connect", or use variable references.
 
    | Variable | Value | Description |
    |----------|-------|-------------|
    | `LLM_PROVIDER` | `gemini` / `openai` / etc. | Your AI provider |
    | `LLM_MODEL` | `gemini-1.5-flash` / etc. | Model identifier |
    | `LLM_API_KEY` | `your-api-key` | Provider API key |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Reference to Railway Postgres |
+   | `REDIS_URL` | `${{Redis.REDIS_URL}}` | Reference to Railway Redis |
+   | `CORS_ORIGINS` | `${{frontend.PUBLIC_DOMAIN}},http://localhost:3000` | Whitelist the frontend domain |
 
-5. Click **Deploy Blueprint**
-
-### Render Blueprint Configuration
-
-The `render.yaml` file defines the complete infrastructure:
-
-```yaml
-databases:
-  - name: rm-database
-    plan: free
-
-services:
-  # Redis for Celery
-  - type: redis
-    name: rm-redis
-    plan: free
-
-  # Backend (FastAPI + Celery worker in one container)
-  - type: web
-    name: rm-backend
-    runtime: docker
-    dockerfilePath: apps/backend/Dockerfile
-    dockerContext: apps/backend
-    plan: free
-    healthCheckPath: /api/v1/health
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: rm-database
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: rm-redis
-          property: connectionString
-      - key: CORS_ORIGINS
-        value: "*"
-
-  # Frontend (Next.js)
-  - type: web
-    name: rm-frontend
-    runtime: docker
-    dockerfilePath: apps/frontend/Dockerfile
-    dockerContext: apps/frontend
-    plan: free
-    envVars:
-      - key: NEXT_PUBLIC_API_BASE_URL
-        fromService:
-          type: web
-          name: rm-backend
-          envVarKey: RENDER_EXTERNAL_URL
-```
+6. Configure the `NEXT_PUBLIC_API_URL` for the frontend service:
+   1. Go to the **Variables** tab for your frontend container
+   2. Set `NEXT_PUBLIC_API_URL` to `https://${{backend.PUBLIC_DOMAIN}}`
+   3. This build ARG will be dynamically injected during Railway's Next.js build.
 
 ### Key Deployment Decisions
 
-1. **Consolidated Backend + Worker**: Render's Free tier does not support separate `worker` service types. We consolidated the Celery worker into the backend container using a `start.sh` entrypoint that runs both processes:
+1. **Consolidated Backend + Worker**: We consolidated the Celery worker into the backend container using a `start.sh` entrypoint that runs both processes, making deployments much cheaper and easier to manage:
 
    ```bash
    #!/bin/bash
@@ -537,18 +493,9 @@ services:
    uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-2. **CORS Configuration**: The `CORS_ORIGINS` environment variable is parsed by Pydantic. A `field_validator` was added to `config.py` to handle both `*` (plain string) and `["*"]` (JSON array) formats:
+2. **CORS Configuration**: The `CORS_ORIGINS` environment variable is parsed by Pydantic. A `field_validator` was added to `config.py` to handle both `*` (plain string), comma-separated strings, and `["*"]` (JSON array) formats.
 
-   ```python
-   @field_validator("cors_origins", mode="before")
-   @classmethod
-   def assemble_cors_origins(cls, v):
-       if isinstance(v, str) and not v.startswith("["):
-           return [i.strip() for i in v.split(",")]
-       return v
-   ```
-
-3. **Frontend ↔ Backend URL**: The frontend automatically discovers the backend URL via Render's `RENDER_EXTERNAL_URL` variable, passed through the `fromService` directive in the blueprint.
+3. **Frontend ↔ Backend URL**: The frontend dynamically reads `NEXT_PUBLIC_API_URL` exclusively at build time. On Railway, this is passed automatically via the container variables.
 
 ---
 
@@ -657,7 +604,7 @@ We welcome contributions from everyone! Whether you're a developer, designer, or
 ### Roadmap
 
 - ✅ Multi-tenant architecture with per-user data isolation
-- ✅ One-click deployment on Render
+- ✅ Pre-configured deployment for Railway
 - ✅ User context switcher for testing/instructor review
 - ✅ Consolidated backend + worker for Free tier hosting
 - 🔲 Full OAuth/JWT authentication
