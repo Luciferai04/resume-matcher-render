@@ -110,11 +110,16 @@ else
     status "Playwright setup complete"
 fi
 
+# Start Celery worker in the background
+info "Starting Celery worker..."
+cd /app/backend
+celery -A app.worker.celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=50 &
+
 # Start backend
 echo ""
 info "Starting backend server on port ${BACKEND_PORT}..."
 cd /app/backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} &
+python -m uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} --workers 1 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready

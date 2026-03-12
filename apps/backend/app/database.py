@@ -350,6 +350,93 @@ class Database:
                 "has_master_resume": has_master,
             }
 
+    def list_cohorts(self) -> list[dict[str, Any]]:
+        """List all cohorts."""
+        with self.get_session() as session:
+            cohorts = session.exec(select(Cohort)).all()
+            return [_to_dict(c) for c in cohorts]
+
+    def bulk_create_users(self, cohort_id: str, students: list[dict[str, str]]) -> list[dict[str, Any]]:
+        """Bulk create users for a cohort. Each student dict should have 'name' and optionally 'email', 'user_id'."""
+        created = []
+        with self.get_session() as session:
+            for s in students:
+                user_id = s.get("user_id", str(uuid4()))
+                user = User(
+                    user_id=user_id,
+                    name=s["name"],
+                    email=s.get("email"),
+                    college=s.get("college"),
+                    roll_number=s.get("roll_number"),
+                    cohort_id=cohort_id,
+                )
+                session.add(user)
+                created.append(user)
+            session.commit()
+            for u in created:
+                session.refresh(u)
+            return [_to_dict(u) for u in created]
+
+    def get_cohort_students_progress(self, cohort_id: str) -> list[dict[str, Any]]:
+        """Get all students in a cohort with their resume progress and ATS scores."""
+        with self.get_session() as session:
+            users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
+            results = []
+            for row in users:
+                user = _unwrap_row(row)
+                user_dict = _to_dict(user)
+
+                # Get master resume for this user
+                master_stmt = select(Resume).where(
+                    Resume.user_id == user.user_id,
+                    Resume.is_master == True,
+                )
+                master = session.exec(master_stmt).first()
+
+                # Count all resumes and tailored resumes
+                total_resumes = session.scalar(
+                    select(func.count()).select_from(Resume).where(Resume.user_id == user.user_id)
+                ) or 0
+                tailored_count = session.scalar(
+                    select(func.count()).select_from(Resume).where(
+                        Resume.user_id == user.user_id,
+                        Resume.parent_id.isnot(None),
+                    )
+                ) or 0
+                job_count = session.scalar(
+                    select(func.count()).select_from(Job).where(Job.user_id == user.user_id)
+                ) or 0
+
+                # Determine status
+                if not master:
+                    status = "not_started"
+                elif master and _unwrap_row(master).processing_status == "failed":
+                    status = "upload_failed"
+                elif master and _unwrap_row(master).processing_status == "processing":
+                    status = "processing"
+                elif tailored_count > 0:
+                    status = "improved"
+                elif job_count > 0:
+                    status = "scored"
+                else:
+                    status = "uploaded"
+
+                master_obj = _unwrap_row(master) if master else None
+                user_dict["progress"] = {
+                    "status": status,
+                    "has_resume": master is not None,
+                    "resume_filename": master_obj.filename if master_obj else None,
+                    "processing_status": master_obj.processing_status if master_obj else None,
+                    "ats_score": master_obj.ats_score if master_obj else None,
+                    "ats_breakdown": master_obj.ats_breakdown if master_obj else None,
+                    "total_resumes": int(total_resumes),
+                    "tailored_count": int(tailored_count),
+                    "job_count": int(job_count),
+                    "resume_uploaded_at": master_obj.created_at.isoformat() if master_obj else None,
+                }
+                results.append(user_dict)
+            return results
+
     def reset_database(self) -> None:
         """Reset the database."""
         with self.get_session() as session:

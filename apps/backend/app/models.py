@@ -19,6 +19,8 @@ class User(SQLModel, table=True):
     user_id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
     name: str
     email: Optional[str] = Field(default=None, index=True)
+    college: Optional[str] = Field(default=None, index=True)
+    roll_number: Optional[str] = Field(default=None, index=True)
     cohort_id: Optional[str] = Field(default=None, foreign_key="cohort.cohort_id", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -37,6 +39,8 @@ class Resume(SQLModel, table=True):
     cover_letter: Optional[str] = None
     outreach_message: Optional[str] = None
     title: Optional[str] = None
+    ats_score: Optional[int] = Field(default=None, index=True)
+    ats_breakdown: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -322,6 +322,28 @@ def normalize_resume_data(data: dict[str, Any]) -> dict[str, Any]:
         data["sectionMeta"] = copy.deepcopy(DEFAULT_SECTION_META)
     if "customSections" not in data:
         data["customSections"] = {}
+
+    # Auto-generate sectionMeta for customSections missing entries
+    existing_keys = {s["key"] for s in data["sectionMeta"]}
+    max_order = max((s["order"] for s in data["sectionMeta"]), default=5)
+    for key, section_data in data.get("customSections", {}).items():
+        if key not in existing_keys:
+            max_order += 1
+            section_type = (
+                section_data.get("sectionType", "text")
+                if isinstance(section_data, dict)
+                else "text"
+            )
+            display_name = key.replace("_", " ").title()
+            data["sectionMeta"].append({
+                "id": key,
+                "key": key,
+                "displayName": display_name,
+                "sectionType": section_type,
+                "isDefault": False,
+                "isVisible": True,
+                "order": max_order,
+            })
     return data
 
 

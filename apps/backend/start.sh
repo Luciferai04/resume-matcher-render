@@ -4,6 +4,6 @@
 echo "Starting Celery worker..."
 celery -A app.worker.celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=50 &
 
-# Start the FastAPI application (explicitly 1 worker)
-echo "Starting FastAPI backend..."
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+# Start the FastAPI application (support dynamic port for Railway)
+echo "Starting FastAPI backend on port ${PORT:-8000}..."
+uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1

@@ -128,7 +128,35 @@ export function withLocalizedDefaultSections(
  * Get section metadata from resume data, falling back to defaults.
  */
 export function getSectionMeta(resumeData: ResumeData): SectionMeta[] {
-  return resumeData.sectionMeta?.length ? resumeData.sectionMeta : DEFAULT_SECTION_META;
+  const base = resumeData.sectionMeta?.length ? resumeData.sectionMeta : DEFAULT_SECTION_META;
+
+  // Auto-include customSections missing from sectionMeta
+  if (resumeData.customSections) {
+    const existingKeys = new Set(base.map((s) => s.key));
+    let maxOrder = Math.max(...base.map((s) => s.order), 0);
+    const additions: SectionMeta[] = [];
+    for (const [key, section] of Object.entries(resumeData.customSections)) {
+      if (!existingKeys.has(key)) {
+        maxOrder += 1;
+        additions.push({
+          id: key,
+          key,
+          displayName: key
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          sectionType: section.sectionType,
+          isDefault: false,
+          isVisible: true,
+          order: maxOrder,
+        });
+      }
+    }
+    if (additions.length > 0) {
+      return [...base, ...additions];
+    }
+  }
+
+  return base;
 }
 
 /**
