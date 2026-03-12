@@ -7,8 +7,8 @@
 FROM node:22 AS frontend-builder
 
 # Build argument for API URL (allows customization at build time)
-# Default matches the default BACKEND_PORT in docker-compose.yml
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+# Empty default = relative URLs, which work with the Nginx reverse proxy
+ARG NEXT_PUBLIC_API_URL=
 ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app/frontend
