@@ -156,11 +156,13 @@ FRONTEND_PID=$!
 # Start Nginx
 echo ""
 info "Starting Nginx reverse proxy on port ${PUBLIC_PORT}..."
-# Replace the placeholder in the nginx config with the actual public port
-sed -i "s/listen 8080;/listen ${PUBLIC_PORT};/g" /etc/nginx/nginx.conf
+# The container runs as non-root, so /etc/nginx/ is read-only.
+# We must copy the config to /tmp to inject the dynamic Railway port.
+cp /etc/nginx/nginx.conf /tmp/nginx.conf
+sed -i "s/listen 8080;/listen ${PUBLIC_PORT};/g" /tmp/nginx.conf
 
-# Running Nginx slightly differently to ensure it doesn't run as root but appuser
-nginx -g 'daemon off;' &
+# Run Nginx with the dynamically generated config file
+nginx -c /tmp/nginx.conf -g 'daemon off;' &
 NGINX_PID=$!
 
 echo ""
