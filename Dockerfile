@@ -113,8 +113,8 @@ USER appuser
 # Install Playwright Chromium as appuser (so browsers are in correct location)
 RUN python -m playwright install chromium
 
-# Configure Nginx Reverse Proxy
-COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+# Configure Nginx Reverse Proxy (Non-Root)
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Expose Nginx proxy port
 EXPOSE 8080
