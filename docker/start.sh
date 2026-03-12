@@ -150,14 +150,22 @@ fi
 node server.js &
 FRONTEND_PID=$!
 
+# Start Nginx
+echo ""
+info "Starting Nginx reverse proxy on port 8080..."
+# Running Nginx slightly differently to ensure it doesn't run as root but appuser
+nginx -g 'daemon off;' &
+NGINX_PID=$!
+
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 status "Resume Matcher is running!"
 echo ""
-echo -e "  ${BOLD}Frontend:${NC}  http://localhost:${FRONTEND_PORT}"
-echo -e "  ${BOLD}Backend:${NC}   http://localhost:${BACKEND_PORT}"
-echo -e "  ${BOLD}API Docs:${NC}  http://localhost:${BACKEND_PORT}/docs"
+echo -e "  ${BOLD}Public URL:${NC}  http://localhost:8080"
+echo -e "  ${BOLD}Frontend:${NC}    http://localhost:${FRONTEND_PORT} (Internal)"
+echo -e "  ${BOLD}Backend:${NC}     http://localhost:${BACKEND_PORT} (Internal)"
+echo -e "  ${BOLD}API Docs:${NC}    http://localhost:8080/docs"
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
@@ -165,4 +173,4 @@ info "Press Ctrl+C to stop"
 echo ""
 
 # Wait for processes
-wait $FRONTEND_PID
+wait $FRONTEND_PID $NGINX_PID

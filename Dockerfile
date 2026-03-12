@@ -66,7 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatspi2.0-0 \
     libgtk-3-0 \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get install -y --no-install-recommends nodejs nginx \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -113,8 +113,11 @@ USER appuser
 # Install Playwright Chromium as appuser (so browsers are in correct location)
 RUN python -m playwright install chromium
 
-# Expose ports
-EXPOSE 3000 8000
+# Configure Nginx Reverse Proxy
+COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+
+# Expose Nginx proxy port
+EXPOSE 8080
 
 # Set working directory
 WORKDIR /app
