@@ -122,7 +122,7 @@ celery -A app.worker.celery_app worker --loglevel=info --concurrency=1 --max-tas
 echo ""
 info "Starting backend server on port ${BACKEND_PORT}..."
 cd /app/backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} --workers 1 &
+python -m uvicorn app.main:app --host 127.0.0.1 --port ${BACKEND_PORT} --workers 1 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready
@@ -146,7 +146,7 @@ cd /app/frontend
 
 # Next.js standalone requires explicit host and port definition
 export PORT="${FRONTEND_PORT}"
-export HOSTNAME="0.0.0.0"
+export HOSTNAME="127.0.0.1"
 if [ ! -f "server.js" ]; then
     error "Missing frontend standalone server.js. Rebuild the Docker image."
     exit 1
