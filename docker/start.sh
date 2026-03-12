@@ -10,9 +10,12 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
-# Port configuration (can be overridden via environment variables)
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+# Port configuration
+# Railway injects $PORT which we MUST use for our public-facing Nginx reverse proxy
+PUBLIC_PORT="${PORT:-8080}"
+# Hardcode internal ports so they aren't overridden by external environment variables
+FRONTEND_PORT="3000"
+BACKEND_PORT="8000"
 
 # Print banner
 print_banner() {
@@ -152,7 +155,10 @@ FRONTEND_PID=$!
 
 # Start Nginx
 echo ""
-info "Starting Nginx reverse proxy on port 8080..."
+info "Starting Nginx reverse proxy on port ${PUBLIC_PORT}..."
+# Replace the placeholder in the nginx config with the actual public port
+sed -i "s/listen 8080;/listen ${PUBLIC_PORT};/g" /etc/nginx/nginx.conf
+
 # Running Nginx slightly differently to ensure it doesn't run as root but appuser
 nginx -g 'daemon off;' &
 NGINX_PID=$!
@@ -162,10 +168,10 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 status "Resume Matcher is running!"
 echo ""
-echo -e "  ${BOLD}Public URL:${NC}  http://localhost:8080"
+echo -e "  ${BOLD}Public URL:${NC}  http://0.0.0.0:${PUBLIC_PORT}"
 echo -e "  ${BOLD}Frontend:${NC}    http://localhost:${FRONTEND_PORT} (Internal)"
 echo -e "  ${BOLD}Backend:${NC}     http://localhost:${BACKEND_PORT} (Internal)"
-echo -e "  ${BOLD}API Docs:${NC}    http://localhost:8080/docs"
+echo -e "  ${BOLD}API Docs:${NC}    http://0.0.0.0:${PUBLIC_PORT}/docs"
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
