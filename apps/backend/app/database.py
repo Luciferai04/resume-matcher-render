@@ -56,6 +56,7 @@ class Database:
         if self.db_url:
             self.engine = create_engine(self.db_url)
             SQLModel.metadata.create_all(self.engine)
+            self._run_migrations()
             logger.info("Initialized SQL database at %s", self.db_url)
         else:
             # Fallback to local SQLite for development
@@ -66,7 +67,25 @@ class Database:
                 self.db_url, connect_args={"check_same_thread": False}
             )
             SQLModel.metadata.create_all(self.engine)
+            self._run_migrations()
             logger.info("Initialized SQLite fallback database at %s", self.db_url)
+
+    def _run_migrations(self):
+        """Run lightweight schema migrations for new columns."""
+        migrations = [
+            ("job", "job_keywords", "JSON"),
+        ]
+        with self.engine.connect() as conn:
+            for table, column, col_type in migrations:
+                try:
+                    conn.execute(text(f"SELECT {column} FROM {table} LIMIT 1"))
+                except Exception:
+                    logger.info("Adding column %s.%s (%s)", table, column, col_type)
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                        conn.commit()
+                    except Exception as e:
+                        logger.warning("Migration for %s.%s failed: %s", table, column, e)
 
     def get_session(self):
         return Session(self.engine)
@@ -96,22 +115,43 @@ class Database:
         college: Optional[str] = None,
         roll_number: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Create a new user."""
-        user_data = {
-            "name": name,
-            "email": email,
-            "cohort_id": cohort_id,
-            "college": college,
-            "roll_number": roll_number,
-        }
-        if user_id:
-            user_data["user_id"] = user_id
-        user = User(**user_data)
+        """Create or update a user."""
         with self.get_session() as session:
-            session.add(user)
-            session.commit()
-            session.refresh(user)
-            return _to_dict(user)
+            existing = None
+            if user_id:
+                existing = session.get(User, user_id)
+            
+            if existing:
+                # Update existing user
+                existing.name = name
+                if email:
+                    existing.email = email
+                if cohort_id:
+                    existing.cohort_id = cohort_id
+                if college:
+                    existing.college = college
+                if roll_number:
+                    existing.roll_number = roll_number
+                session.add(existing)
+                session.commit()
+                session.refresh(existing)
+                return _to_dict(existing)
+            else:
+                # Create new user
+                user_data = {
+                    "name": name,
+                    "email": email,
+                    "cohort_id": cohort_id,
+                    "college": college,
+                    "roll_number": roll_number,
+                }
+                if user_id:
+                    user_data["user_id"] = user_id
+                user = User(**user_data)
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                return _to_dict(user)
 
     def get_user(self, user_id: str) -> Optional[dict[str, Any]]:
         """Get user by ID."""
@@ -179,8 +219,9 @@ class Database:
             if current_master and current_master.get("processing_status") == "failed":
                 with self.get_session() as session:
                     stmt = select(Resume).where(Resume.resume_id == current_master["resume_id"])
-                    old_master = session.exec(stmt).first()
-                    if old_master:
+                    old_master_row = session.exec(stmt).first()
+                    if old_master_row:
+                        old_master = _unwrap_row(old_master_row)
                         old_master.is_master = False
                         session.add(old_master)
                         session.commit()
@@ -371,25 +412,39 @@ class Database:
             return [_to_dict(c) for c in cohorts]
 
     def bulk_create_users(self, cohort_id: str, students: list[dict[str, str]]) -> list[dict[str, Any]]:
-        """Bulk create users for a cohort. Each student dict should have 'name' and optionally 'email', 'user_id'."""
-        created = []
+        """Bulk create or update users for a cohort."""
+        results = []
         with self.get_session() as session:
             for s in students:
-                user_id = s.get("user_id", str(uuid4()))
-                user = User(
-                    user_id=user_id,
-                    name=s["name"],
-                    email=s.get("email"),
-                    college=s.get("college"),
-                    roll_number=s.get("roll_number"),
-                    cohort_id=cohort_id,
-                )
-                session.add(user)
-                created.append(user)
+                user_id = s.get("user_id")
+                existing = None
+                if user_id:
+                    existing = session.get(User, user_id)
+                
+                if existing:
+                    # Update existing user
+                    existing.name = s.get("name", existing.name)
+                    existing.email = s.get("email", existing.email)
+                    existing.college = s.get("college", existing.college)
+                    existing.roll_number = s.get("roll_number", existing.roll_number)
+                    existing.cohort_id = cohort_id
+                    session.add(existing)
+                    results.append(existing)
+                else:
+                    # Create new user
+                    user = User(
+                        user_id=user_id or str(uuid4()),
+                        name=s["name"],
+                        email=s.get("email"),
+                        college=s.get("college"),
+                        roll_number=s.get("roll_number"),
+                        cohort_id=cohort_id,
+                    )
+                    session.add(user)
+                    results.append(user)
             session.commit()
-            for u in created:
-                session.refresh(u)
-            return [_to_dict(u) for u in created]
+            # Note: Results might need refreshing if they are to be returned as full dicts
+            return [_to_dict(u) for u in results]
 
     def get_cohort_students_progress(self, cohort_id: str) -> list[dict[str, Any]]:
         """Get all students in a cohort with their resume progress and ATS scores."""
