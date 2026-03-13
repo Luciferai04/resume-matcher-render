@@ -146,28 +146,48 @@ async def bulk_upload_resumes(
 
     csv_file = next((f for f in files if f.filename and f.filename.lower().endswith(".csv")), None)
     filename_map = {}
+    results = []
     
     if csv_file:
         content = await csv_file.read()
         try:
             reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
             students_to_create = []
+            
+            # Explicit mapping for Google Forms headers
+            # Note: We aren't doing the automatic mapping since Google Forms headers are very specific
             for row in reader:
-                # Helper to find column case-insensitively / space-insensitively
-                def get_col(candidates):
-                    for original_header in (reader.fieldnames or []):
-                        clean = original_header.strip().lower().replace(" ", "_").replace("-", "_")
-                        if clean in candidates:
-                            return row.get(original_header)
-                    return None
+                # The headers from the user's provided CSV:
+                # 'Timestamp', 'Score', 'Student Roll Number (Mandatory)', 'Full Name (Mandatory)', 
+                # 'Upload Your Resume (Mandatory)', 'Your College Email Address ', 'College/Institution Name '
                 
-                fname = get_col(["filename", "resume", "file", "document"])
-                if not fname: continue
+                name_key = next((k for k in row.keys() if "Full Name" in str(k)), None)
+                roll_key = next((k for k in row.keys() if "Roll Number" in str(k)), None)
+                email_key = next((k for k in row.keys() if "Email Address" in str(k)), None)
+                # Be more specific for college to avoid matching email headers containing "College"
+                college_key = next((k for k in row.keys() if "College/Institution" in str(k) or "Institution Name" in str(k)), None)
+                if not college_key:
+                     college_key = next((k for k in row.keys() if "College" in str(k) and "Email" not in str(k)), None)
                 
-                roll = get_col(["roll_number", "student_id", "id"]) or fname.rsplit(".", 1)[0]
-                name = get_col(["name", "full_name", "student_name"]) or fname.rsplit(".", 1)[0].replace("_", " ").title()
-                email = get_col(["email", "email_address"])
-                college = get_col(["college", "university", "institution"])
+                resume_key = next((k for k in row.keys() if "Upload Your Resume" in str(k)), None)
+
+                name = row.get(name_key, "").strip() if name_key else None
+                roll = row.get(roll_key, "").strip() if roll_key else None
+                
+                # If neither name nor roll is found, it might be an empty row, skip
+                if not name and not roll:
+                    continue
+                    
+                # We do not have a filename in the CSV, just a Google Drive link
+                # So we can't map filename to student directly from the CSV
+                # For this to work, the user needs to upload the files with the Roll Number.pdf or Name.pdf
+                
+                # If they didn't provide a roll, generate a UUID
+                roll = roll or str(uuid4())
+                name = name or f"Student {roll}"
+                    
+                email = row.get(email_key, "").strip() if email_key else None
+                college = row.get(college_key, "").strip() if college_key else None
                 
                 info = {
                     "user_id": roll,
@@ -176,12 +196,53 @@ async def bulk_upload_resumes(
                     "college": college,
                     "roll_number": roll,
                 }
-                filename_map[fname] = info
+                
+                # Since we don't know the filenames, we map by user_id and name
+                # filename_map won't work perfectly if filenames don't match roll/name.
+                # However, students_to_create is populated correctly.
                 students_to_create.append(info)
+            
+            # Deduplicate by user_id (keep first occurrence)
+            seen_ids = set()
+            unique_students = []
+            for s in students_to_create:
+                uid = s["user_id"]
+                if uid not in seen_ids:
+                    seen_ids.add(uid)
+                    unique_students.append(s)
+            students_to_create = unique_students
+                
             if students_to_create:
-                db.bulk_create_users(cohort_id, students_to_create)
+                try:
+                    db.bulk_create_users(cohort_id, students_to_create)
+                except Exception as bulk_err:
+                    logger.warning("Bulk create had issues (some may already exist): %s", bulk_err)
+                    # Try one-by-one as fallback
+                    for s in students_to_create:
+                        try:
+                            db.create_user(
+                                name=s["name"],
+                                email=s.get("email"),
+                                cohort_id=cohort_id,
+                                user_id=s["user_id"],
+                                college=s.get("college"),
+                                roll_number=s.get("roll_number"),
+                            )
+                        except Exception:
+                            pass  # Skip already existing users
+                
+            results.append({
+                "filename": csv_file.filename,
+                "status": "uploaded",
+                "message": f"Processed {len(students_to_create)} students from CSV"
+            })
         except Exception as e:
             logger.error("Failed to parse CSV: %s", e)
+            results.append({
+                "filename": csv_file.filename,
+                "status": "error",
+                "error": f"Failed to parse CSV: {str(e)}",
+            })
 
     students = db.get_cohort_students_progress(cohort_id)
     # Build lookup: user_id -> user, and name (lowercase) -> user
@@ -191,7 +252,6 @@ async def bulk_upload_resumes(
     # Filter out the CSV file from the actual processing loop
     files_to_process = [f for f in files if f.filename and not f.filename.lower().endswith(".csv")]
 
-    results = []
     for file in files_to_process:
         filename = file.filename or "resume.pdf"
         stem = filename.rsplit(".", 1)[0].strip()

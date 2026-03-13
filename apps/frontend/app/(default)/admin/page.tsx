@@ -478,7 +478,7 @@ export default function AdminPage() {
                                         {uploadResults.map((r, i) => (
                                             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: r.status === 'uploaded' ? GREEN : RED }}>
                                                 <span>{r.filename}</span>
-                                                <span style={{ fontWeight: 700 }}>{r.status === 'uploaded' ? '✓ OK' : '✗ ' + (r.error || 'FAILED')}</span>
+                                                <span style={{ fontWeight: 700 }}>{r.status === 'uploaded' ? (r.message ? `✓ ${r.message}` : '✓ OK') : '✗ ' + (r.error || 'FAILED')}</span>
                                             </div>
                                         ))}
                                     </div>
