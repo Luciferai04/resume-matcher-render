@@ -151,7 +151,20 @@ async def bulk_upload_resumes(
     if csv_file:
         content = await csv_file.read()
         try:
-            reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+            # Detect encoding
+            text_content = None
+            for encoding in ["utf-8-sig", "utf-8", "latin-1", "cp1252"]:
+                try:
+                    text_content = content.decode(encoding)
+                    logger.info("Successfully decoded CSV using %s", encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if text_content is None:
+                raise ValueError("Could not decode CSV file with supported encodings (utf-8, latin-1, etc)")
+
+            reader = csv.DictReader(io.StringIO(text_content))
             students_to_create = []
             
             # Explicit mapping for Google Forms headers
@@ -161,16 +174,15 @@ async def bulk_upload_resumes(
                 # 'Timestamp', 'Score', 'Student Roll Number (Mandatory)', 'Full Name (Mandatory)', 
                 # 'Upload Your Resume (Mandatory)', 'Your College Email Address ', 'College/Institution Name '
                 
+                # Use "in" check to handle trailing spaces or slight variations
                 name_key = next((k for k in row.keys() if "Full Name" in str(k)), None)
-                roll_key = next((k for k in row.keys() if "Roll Number" in str(k)), None)
+                roll_key = next((k for k in row.keys() if "Roll Number" in str(k) or "Student ID" in str(k)), None)
                 email_key = next((k for k in row.keys() if "Email Address" in str(k)), None)
                 # Be more specific for college to avoid matching email headers containing "College"
                 college_key = next((k for k in row.keys() if "College/Institution" in str(k) or "Institution Name" in str(k)), None)
                 if not college_key:
                      college_key = next((k for k in row.keys() if "College" in str(k) and "Email" not in str(k)), None)
                 
-                resume_key = next((k for k in row.keys() if "Upload Your Resume" in str(k)), None)
-
                 name = row.get(name_key, "").strip() if name_key else None
                 roll = row.get(roll_key, "").strip() if roll_key else None
                 
@@ -178,28 +190,20 @@ async def bulk_upload_resumes(
                 if not name and not roll:
                     continue
                     
-                # We do not have a filename in the CSV, just a Google Drive link
-                # So we can't map filename to student directly from the CSV
-                # For this to work, the user needs to upload the files with the Roll Number.pdf or Name.pdf
-                
                 # If they didn't provide a roll, generate a UUID
-                roll = roll or str(uuid4())
-                name = name or f"Student {roll}"
+                user_id = roll or str(uuid4())
+                name = name or f"Student {user_id}"
                     
                 email = row.get(email_key, "").strip() if email_key else None
                 college = row.get(college_key, "").strip() if college_key else None
                 
                 info = {
-                    "user_id": roll,
+                    "user_id": user_id,
                     "name": name,
                     "email": email,
                     "college": college,
                     "roll_number": roll,
                 }
-                
-                # Since we don't know the filenames, we map by user_id and name
-                # filename_map won't work perfectly if filenames don't match roll/name.
-                # However, students_to_create is populated correctly.
                 students_to_create.append(info)
             
             # Deduplicate by user_id (keep first occurrence)
@@ -210,31 +214,41 @@ async def bulk_upload_resumes(
                 if uid not in seen_ids:
                     seen_ids.add(uid)
                     unique_students.append(s)
-            students_to_create = unique_students
-                
-            if students_to_create:
+            
+            count = 0
+            if unique_students:
+                logger.info("Attempting to create %d students for cohort %s", len(unique_students), cohort_id)
                 try:
-                    db.bulk_create_users(cohort_id, students_to_create)
+                    db.bulk_create_users(cohort_id, unique_students)
+                    count = len(unique_students)
                 except Exception as bulk_err:
-                    logger.warning("Bulk create had issues (some may already exist): %s", bulk_err)
+                    logger.warning("Bulk create had issues: %s. Falling back to one-by-one.", bulk_err)
                     # Try one-by-one as fallback
-                    for s in students_to_create:
+                    for s in unique_students:
                         try:
                             db.create_user(
                                 name=s["name"],
-                                email=s.get("email"),
+                                email=s.get("email") or "",
                                 cohort_id=cohort_id,
                                 user_id=s["user_id"],
                                 college=s.get("college"),
                                 roll_number=s.get("roll_number"),
                             )
-                        except Exception:
-                            pass  # Skip already existing users
+                            count += 1
+                        except Exception as e:
+                            logger.error("Failed to create student %s: %s", s["name"], e)
                 
             results.append({
                 "filename": csv_file.filename,
                 "status": "uploaded",
-                "message": f"Processed {len(students_to_create)} students from CSV"
+                "message": f"Processed {len(unique_students)} rows, created/updated {count} students"
+            })
+        except Exception as e:
+            logger.error("Failed to parse CSV: %s", e)
+            results.append({
+                "filename": csv_file.filename if csv_file else "unknown.csv",
+                "status": "error",
+                "error": f"CSV Error: {str(e)}",
             })
         except Exception as e:
             logger.error("Failed to parse CSV: %s", e)

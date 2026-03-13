@@ -258,9 +258,35 @@ export default function AdminPage() {
             const res = await apiFetch(`/admin/cohorts/${selectedCohort}/upload-resumes`, {
                 method: 'POST', body: fd,
             });
-            setUploadResults((await res.json()).results || []);
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ detail: 'Upload failed with server error' }));
+                setUploadResults([{ 
+                    filename: 'Upload Process', 
+                    status: 'error', 
+                    error: errorData.detail || errorData.message || `Server error (${res.status})` 
+                }]);
+                return;
+            }
+            
+            const data = await res.json();
+            setUploadResults(data.results || []);
+            
+            // Show alert if no students created from CSV
+            const csvResult = data.results?.find((r: any) => r.filename?.toLowerCase().endsWith('.csv'));
+            if (csvResult && csvResult.message && csvResult.message.includes('created/updated 0 students')) {
+                console.warn('CSV processed but 0 students were created.');
+            }
+            
             fetchCohortData(selectedCohort);
-        } catch (err) { console.error(err); }
+        } catch (err: any) { 
+            console.error('Upload error:', err);
+            setUploadResults([{ 
+                filename: 'Network/Client', 
+                status: 'error', 
+                error: err.message || 'Failed to connect to server' 
+            }]);
+        }
         finally { setUploading(false); }
     };
 

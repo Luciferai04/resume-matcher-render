@@ -87,9 +87,23 @@ class Database:
             cohort = session.get(Cohort, cohort_id)
             return _to_dict(cohort) if cohort else None
 
-    def create_user(self, name: str, email: str, cohort_id: Optional[str] = None, user_id: Optional[str] = None) -> dict[str, Any]:
+    def create_user(
+        self,
+        name: str,
+        email: str,
+        cohort_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        college: Optional[str] = None,
+        roll_number: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Create a new user."""
-        user_data = {"name": name, "email": email, "cohort_id": cohort_id}
+        user_data = {
+            "name": name,
+            "email": email,
+            "cohort_id": cohort_id,
+            "college": college,
+            "roll_number": roll_number,
+        }
         if user_id:
             user_data["user_id"] = user_id
         user = User(**user_data)
