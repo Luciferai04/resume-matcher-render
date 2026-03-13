@@ -129,7 +129,7 @@ async def get_students_progress(cohort_id: str):
 
 # ─── Bulk Resume Upload ───────────────────────────────────────────────────────
 
-@router.post("/cohorts/{cohort_id}/upload-resumes")
+@router.post("/cohorts/{cohort_id}/bulk-upload-resumes")
 async def bulk_upload_resumes(
     cohort_id: str,
     files: list[UploadFile] = File(...),

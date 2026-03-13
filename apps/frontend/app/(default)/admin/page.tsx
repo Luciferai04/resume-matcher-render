@@ -257,11 +257,12 @@ export default function AdminPage() {
             const fd = new FormData();
             for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
             
-            const url = new URL(`${API_BASE}/admin/cohorts/${selectedCohort}/upload-resumes`);
-            if (scoringJobId.trim()) url.searchParams.append('job_id', scoringJobId.trim());
-
-            const res = await apiFetch(url.toString(), {
-                method: 'POST', body: fd,
+            const endpoint = `/admin/cohorts/${selectedCohort}/bulk-upload-resumes`;
+            const queryParams = scoringJobId.trim() ? `?job_id=${scoringJobId.trim()}` : '';
+            
+            const res = await apiFetch(`${endpoint}${queryParams}`, {
+                method: 'POST',
+                body: fd,
             });
             
             if (!res.ok) {
