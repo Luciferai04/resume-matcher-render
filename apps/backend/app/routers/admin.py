@@ -1,6 +1,7 @@
 """Admin endpoints for cohort and student management."""
 
 import logging
+import datetime
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.database import db
 from app.services.parser import parse_document, parse_resume_to_json
+from app.services.downloader import download_file
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +133,7 @@ async def get_students_progress(cohort_id: str):
 async def bulk_upload_resumes(
     cohort_id: str,
     files: list[UploadFile] = File(...),
+    job_id: Optional[str] = None,
 ):
     """Bulk upload resume PDFs for students in a cohort.
     
@@ -150,6 +153,7 @@ async def bulk_upload_resumes(
     
     if csv_file:
         content = await csv_file.read()
+        unique_students = []
         try:
             # Detect encoding
             text_content = None
@@ -167,33 +171,24 @@ async def bulk_upload_resumes(
             reader = csv.DictReader(io.StringIO(text_content))
             students_to_create = []
             
-            # Explicit mapping for Google Forms headers
-            # Note: We aren't doing the automatic mapping since Google Forms headers are very specific
             for row in reader:
-                # The headers from the user's provided CSV:
-                # 'Timestamp', 'Score', 'Student Roll Number (Mandatory)', 'Full Name (Mandatory)', 
-                # 'Upload Your Resume (Mandatory)', 'Your College Email Address ', 'College/Institution Name '
-                
-                # Use "in" check to handle trailing spaces or slight variations
                 name_key = next((k for k in row.keys() if "Full Name" in str(k)), None)
                 roll_key = next((k for k in row.keys() if "Roll Number" in str(k) or "Student ID" in str(k)), None)
                 email_key = next((k for k in row.keys() if "Email Address" in str(k)), None)
-                # Be more specific for college to avoid matching email headers containing "College"
                 college_key = next((k for k in row.keys() if "College/Institution" in str(k) or "Institution Name" in str(k)), None)
                 if not college_key:
                      college_key = next((k for k in row.keys() if "College" in str(k) and "Email" not in str(k)), None)
                 
+                resume_url_key = next((k for k in row.keys() if "Upload Your Resume" in str(k)), None)
+                
                 name = row.get(name_key, "").strip() if name_key else None
                 roll = row.get(roll_key, "").strip() if roll_key else None
                 
-                # If neither name nor roll is found, it might be an empty row, skip
                 if not name and not roll:
                     continue
                     
-                # If they didn't provide a roll, generate a UUID
                 user_id = roll or str(uuid4())
                 name = name or f"Student {user_id}"
-                    
                 email = row.get(email_key, "").strip() if email_key else None
                 college = row.get(college_key, "").strip() if college_key else None
                 
@@ -203,19 +198,18 @@ async def bulk_upload_resumes(
                     "email": email,
                     "college": college,
                     "roll_number": roll,
+                    "resume_url": row.get(resume_url_key, "").strip() if resume_url_key else None
                 }
                 students_to_create.append(info)
             
-            # Deduplicate by user_id (keep first occurrence)
             seen_ids = set()
-            unique_students = []
             for s in students_to_create:
                 uid = s["user_id"]
                 if uid not in seen_ids:
                     seen_ids.add(uid)
                     unique_students.append(s)
             
-            count = 0
+            count: int = 0
             if unique_students:
                 logger.info("Attempting to create %d students for cohort %s", len(unique_students), cohort_id)
                 try:
@@ -223,7 +217,6 @@ async def bulk_upload_resumes(
                     count = len(unique_students)
                 except Exception as bulk_err:
                     logger.warning("Bulk create had issues: %s. Falling back to one-by-one.", bulk_err)
-                    # Try one-by-one as fallback
                     for s in unique_students:
                         try:
                             db.create_user(
@@ -250,16 +243,67 @@ async def bulk_upload_resumes(
                 "status": "error",
                 "error": f"CSV Error: {str(e)}",
             })
-        except Exception as e:
-            logger.error("Failed to parse CSV: %s", e)
-            results.append({
-                "filename": csv_file.filename,
-                "status": "error",
-                "error": f"Failed to parse CSV: {str(e)}",
-            })
 
+        # Process resume URLs from CSV
+        for student in unique_students:
+            resume_url = student.get("resume_url")
+            if not resume_url or not resume_url.startswith("http"):
+                continue
+            
+            user_id = student["user_id"]
+            filename = f"resume_{user_id}.pdf"
+            
+            logger.info("Downloading resume from URL for student %s: %s", user_id, resume_url)
+            content = await download_file(resume_url)
+            
+            if not content:
+                results.append({
+                    "filename": filename,
+                    "user_id": user_id,
+                    "status": "error",
+                    "error": f"Failed to download resume from URL: {resume_url}",
+                })
+                continue
+            
+            try:
+                markdown_content = await parse_document(content, filename)
+                resume = await db.create_resume_atomic_master(
+                    content=markdown_content,
+                    content_type="md",
+                    filename=filename,
+                    processing_status="processing",
+                    user_id=user_id,
+                )
+                
+                try:
+                    from app.worker import process_and_score_resume_task
+                    process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
+                except Exception as worker_err:
+                    logger.warning("Celery dispatch failed, trying inline: %s", worker_err)
+                    processed_data = await parse_resume_to_json(markdown_content)
+                    db.update_resume(resume["resume_id"], {
+                        "processed_data": processed_data,
+                        "processing_status": "ready",
+                    }, user_id=user_id)
+                
+                results.append({
+                    "filename": filename,
+                    "user_id": user_id,
+                    "resume_id": resume["resume_id"],
+                    "status": "uploaded",
+                    "message": "Downloaded from URL"
+                })
+            except Exception as proc_err:
+                logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err)
+                results.append({
+                    "filename": filename,
+                    "user_id": user_id,
+                    "status": "error",
+                    "error": f"Processing failed: {str(proc_err)}",
+                })
+
+    # Match files to students
     students = db.get_cohort_students_progress(cohort_id)
-    # Build lookup: user_id -> user, and name (lowercase) -> user
     user_by_id = {s["user_id"]: s for s in students}
     user_by_name = {s["name"].lower().strip(): s for s in students}
 
@@ -270,16 +314,11 @@ async def bulk_upload_resumes(
         filename = file.filename or "resume.pdf"
         stem = filename.rsplit(".", 1)[0].strip()
 
-        # Try to match from CSV first, then user_id, then name
-        mapped = filename_map.get(filename)
-        matched_user = None
-        if mapped and mapped["user_id"] in user_by_id:
-            matched_user = user_by_id[mapped["user_id"]]
-        else:
-            matched_user = user_by_id.get(stem) or user_by_name.get(stem.lower())
+        # Try to match by user_id or name
+        matched_user = user_by_id.get(stem) or user_by_name.get(stem.lower())
 
         if not matched_user:
-            # Auto-create user with filename as ID
+            # Auto-create user with filename as ID if no match found
             try:
                 user = db.create_user(
                     name=stem.replace("_", " ").title(),
@@ -299,7 +338,6 @@ async def bulk_upload_resumes(
 
         user_id = matched_user["user_id"]
 
-        # Read and parse the file
         try:
             content = await file.read()
             if len(content) == 0:
@@ -312,8 +350,6 @@ async def bulk_upload_resumes(
                 continue
 
             markdown_content = await parse_document(content, filename)
-
-            # Create resume for this user
             resume = await db.create_resume_atomic_master(
                 content=markdown_content,
                 content_type="md",
@@ -322,10 +358,9 @@ async def bulk_upload_resumes(
                 user_id=user_id,
             )
 
-            # Trigger background processing
             try:
-                from app.worker import process_resume_task
-                process_resume_task.delay(resume["resume_id"])
+                from app.worker import process_and_score_resume_task
+                process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
             except Exception as worker_err:
                 logger.warning("Celery dispatch failed for %s, trying inline: %s", filename, worker_err)
                 try:
@@ -358,7 +393,7 @@ async def bulk_upload_resumes(
     uploaded = sum(1 for r in results if r["status"] == "uploaded")
     failed = sum(1 for r in results if r["status"] == "error")
     return {
-        "message": f"Processed {len(files)} files: {uploaded} uploaded, {failed} failed",
+        "message": f"Bulk upload completed: {uploaded} successful, {failed} failed",
         "results": results,
     }
 
@@ -375,10 +410,10 @@ async def get_cohort_stats(cohort_id: str) -> CohortStatsResponse:
     students = db.get_cohort_students_progress(cohort_id)
 
     status_counts: dict[str, int] = {}
-    ats_scores = []
-    resumes_uploaded = 0
-    resumes_scored = 0
-    resumes_improved = 0
+    ats_scores: list[float] = []
+    resumes_uploaded: int = 0
+    resumes_scored: int = 0
+    resumes_improved: int = 0
 
     for s in students:
         progress = s.get("progress", {})
@@ -532,7 +567,7 @@ async def get_executive_report(cohort_id: str):
 
     return {
         "cohort": cohort,
-        "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "summary": {
             "total_students": total,
             "engagement_rate": round(uploaded / max(total, 1) * 100),

@@ -188,6 +188,7 @@ export default function AdminPage() {
     const [sortKey, setSortKey] = useState<string>('name');
     const [sortAsc, setSortAsc] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [scoringJobId, setScoringJobId] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { fetchCohorts(); }, []);
@@ -255,7 +256,11 @@ export default function AdminPage() {
         try {
             const fd = new FormData();
             for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
-            const res = await apiFetch(`/admin/cohorts/${selectedCohort}/upload-resumes`, {
+            
+            const url = new URL(`${API_BASE}/admin/cohorts/${selectedCohort}/upload-resumes`);
+            if (scoringJobId.trim()) url.searchParams.append('job_id', scoringJobId.trim());
+
+            const res = await apiFetch(url.toString(), {
                 method: 'POST', body: fd,
             });
             
@@ -478,6 +483,18 @@ export default function AdminPage() {
                                 <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
                                     Google Forms / Bulk Upload
                                 </h3>
+                                <div style={{ marginBottom: '12px' }}>
+                                    <input
+                                        type="text"
+                                        value={scoringJobId}
+                                        onChange={e => setScoringJobId(e.target.value)}
+                                        placeholder="Job ID for scoring (Optional)..."
+                                        style={{ ...inputStyle, width: '100%', fontSize: '11px', padding: '6px 10px', boxSizing: 'border-box' }}
+                                    />
+                                    <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: MUTED, marginTop: '4px', textTransform: 'uppercase' }}>
+                                        leave empty for manual scoring later
+                                    </div>
+                                </div>
                                 <div
                                     onClick={() => !uploading && fileInputRef.current?.click()}
                                     onDragOver={e => e.preventDefault()}
