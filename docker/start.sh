@@ -116,7 +116,7 @@ fi
 # Start Celery worker in the background
 info "Starting Celery worker..."
 cd /app/backend
-celery -A app.worker.celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=50 &
+celery -A app.worker.celery_app worker --loglevel=info --concurrency=10 --max-tasks-per-child=100 &
 
 # Start backend
 echo ""
