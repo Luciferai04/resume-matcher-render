@@ -227,10 +227,25 @@ export default function AdminPage() {
         try {
             const res = await apiPost('/admin/cohorts', { name: newCohortName.trim() });
             const data = await res.json();
-            setCohorts((prev) => [...prev, data]);
-            setSelectedCohort(data.cohort_id);
-            setNewCohortName('');
-        } catch (err) { console.error(err); }
+            
+            if (!res.ok) {
+                alert(`Failed to create cohort: ${data.detail || data.message || 'Unknown error'}`);
+                return;
+            }
+
+            // Ensure data has the required fields
+            if (data && data.cohort_id) {
+                setCohorts((prev) => [...prev, data]);
+                setSelectedCohort(data.cohort_id);
+                setNewCohortName('');
+                console.log('Cohort created successfully:', data.cohort_id);
+            } else {
+                throw new Error('Invalid response from server');
+            }
+        } catch (err: any) { 
+            console.error('Cohort creation error:', err);
+            alert(`Error: ${err.message || 'Failed to connect to backend'}`);
+        }
         finally { setCreating(false); }
     };
 
@@ -408,31 +423,51 @@ export default function AdminPage() {
             </div>
 
             <div style={{ padding: '32px 40px', maxWidth: '1400px', margin: '0 auto' }}>
-                {/* Cohort Selector */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch', marginBottom: '32px', flexWrap: 'wrap' }}>
-                    <select
-                        value={selectedCohort || ''}
-                        onChange={e => setSelectedCohort(e.target.value)}
-                        style={{ ...inputStyle, minWidth: '260px', cursor: 'pointer' }}
-                    >
-                        <option value="" disabled>Select cohort...</option>
-                        {cohorts.map(c => <option key={c.cohort_id} value={c.cohort_id}>{c.name}</option>)}
-                    </select>
-                    <input
-                        type="text"
-                        value={newCohortName}
-                        onChange={e => setNewCohortName(e.target.value)}
-                        placeholder="New cohort name..."
-                        onKeyDown={e => e.key === 'Enter' && handleCreateCohort()}
-                        style={{ ...inputStyle, width: '240px' }}
-                    />
-                    <button
-                        onClick={handleCreateCohort}
-                        disabled={creating || !newCohortName.trim()}
-                        style={{ ...btnPrimary, opacity: creating || !newCohortName.trim() ? 0.4 : 1 }}
-                    >
-                        {creating ? 'Creating...' : '+ Create'}
-                    </button>
+                {/* Cohort & Job Selectors */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', marginBottom: '32px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, marginBottom: '6px', textTransform: 'uppercase' }}>Select Cohort</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <select
+                                value={selectedCohort || ''}
+                                onChange={e => setSelectedCohort(e.target.value)}
+                                style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
+                            >
+                                <option value="" disabled>Select cohort...</option>
+                                {cohorts.map(c => <option key={c.cohort_id} value={c.cohort_id}>{c.name}</option>)}
+                            </select>
+                            <input
+                                type="text"
+                                value={newCohortName}
+                                onChange={e => setNewCohortName(e.target.value)}
+                                placeholder="New cohort..."
+                                onKeyDown={e => e.key === 'Enter' && handleCreateCohort()}
+                                style={{ ...inputStyle, width: '120px' }}
+                            />
+                            <button
+                                onClick={handleCreateCohort}
+                                disabled={creating || !newCohortName.trim()}
+                                style={{ ...btnPrimary, padding: '8px 12px', opacity: creating || !newCohortName.trim() ? 0.4 : 1 }}
+                            >
+                                {creating ? '...' : '+'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ flex: '1 1 300px' }}>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, marginBottom: '6px', textTransform: 'uppercase' }}>Target Job for Scoring</div>
+                        <select
+                            value={scoringJobId}
+                            onChange={e => setScoringJobId(e.target.value)}
+                            style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
+                        >
+                            <option value="">No scoring (Parse only)</option>
+                            {/* We could fetch jobs here, for now using a dynamic list if we had one */}
+                            <optgroup label="Available Jobs">
+                                <option value="9008b704-cba9-4825-bc8b-3f80971036dd">Demo Job Description</option>
+                            </optgroup>
+                        </select>
+                    </div>
                 </div>
 
                 {!selectedCohort ? (

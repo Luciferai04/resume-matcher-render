@@ -19,16 +19,30 @@ logger = logging.getLogger(__name__)
 def _unwrap_row(obj: Any) -> Any:
     """Unwrap a SQLAlchemy Row to get the underlying SQLModel instance.
 
-    session.exec(select(Model)).all() can return Row objects (tuples)
-    instead of model instances in some SQLModel/SQLAlchemy versions.
+    In SQLAlchemy 2.0 / SQLModel, queries often return Row objects instead
+    of model instances. This helper ensures we work with the actual model.
     """
+    if obj is None:
+        return None
     if hasattr(obj, "model_dump"):
         return obj
-    # Row object - try to extract the first element (the model instance)
+    
+    # Try different ways to get the model from a Row
+    # 1. Row._mapping.values()
+    if hasattr(obj, "_mapping"):
+        mapping = obj._mapping
+        if mapping:
+            return next(iter(mapping.values()))
+    
+    # 2. Row._tuple() or tuple(Row)
     if hasattr(obj, "_tuple"):
-        return obj._tuple()[0]
-    if isinstance(obj, tuple):
+        tpl = obj._tuple()
+        if tpl:
+            return tpl[0]
+            
+    if isinstance(obj, (tuple, list)) and len(obj) > 0:
         return obj[0]
+        
     return obj
 
 
@@ -39,7 +53,20 @@ def _to_dict(obj: Any) -> dict[str, Any]:
     timestamps, matching the old TinyDB format.
     """
     unwrapped = _unwrap_row(obj)
-    data = unwrapped.model_dump()
+    if not unwrapped:
+        return {}
+    
+    # Ensure it's a dict
+    if hasattr(unwrapped, "model_dump"):
+        data = unwrapped.model_dump()
+    elif hasattr(unwrapped, "dict"):
+        data = unwrapped.dict()
+    elif isinstance(unwrapped, dict):
+        data = unwrapped
+    else:
+        # Fallback for unexpected types
+        return {}
+
     for key, value in data.items():
         if isinstance(value, datetime):
             data[key] = value.isoformat()
@@ -54,7 +81,11 @@ class Database:
     def __init__(self, db_url: Optional[str] = None):
         self.db_url = db_url or settings.database_url
         if self.db_url:
-            self.engine = create_engine(self.db_url)
+            # Fix for Railway providing postgres:// instead of postgresql://
+            if self.db_url.startswith("postgres://"):
+                self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
+                
+            self.engine = create_engine(self.db_url, pool_pre_ping=True)
             SQLModel.metadata.create_all(self.engine)
             self._run_migrations()
             logger.info("Initialized SQL database at %s", self.db_url)
@@ -64,7 +95,7 @@ class Database:
             sqlite_path.parent.mkdir(parents=True, exist_ok=True)
             self.db_url = f"sqlite:///{sqlite_path}"
             self.engine = create_engine(
-                self.db_url, connect_args={"check_same_thread": False}
+                self.db_url, connect_args={"check_same_thread": False}, pool_pre_ping=True
             )
             SQLModel.metadata.create_all(self.engine)
             self._run_migrations()
@@ -73,17 +104,27 @@ class Database:
     def _run_migrations(self):
         """Run lightweight schema migrations for new columns."""
         migrations = [
+            # table, column, type
             ("job", "job_keywords", "JSON"),
+            ("user", "cohort_id", "VARCHAR"),
+            ("user", "college", "VARCHAR"),
+            ("user", "roll_number", "VARCHAR"),
+            ("cohort", "created_at", "TIMESTAMP"),
+            ("cohort", "start_date", "TIMESTAMP"),
+            ("resume", "ats_score", "INTEGER"),
+            ("resume", "ats_breakdown", "JSON"),
         ]
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             for table, column, col_type in migrations:
                 try:
+                    # Check if column exists
                     conn.execute(text(f"SELECT {column} FROM {table} LIMIT 1"))
                 except Exception:
                     logger.info("Adding column %s.%s (%s)", table, column, col_type)
                     try:
+                        # Attempt to add column
+                        # Note: Simple ALTER TABLE works for SQLite and Postgres for basic types
                         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-                        conn.commit()
                     except Exception as e:
                         logger.warning("Migration for %s.%s failed: %s", table, column, e)
 
@@ -259,7 +300,8 @@ class Database:
     def update_resume(self, resume_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> dict[str, Any]:
         """Update resume by ID."""
         with self.get_session() as session:
-            resume = session.get(Resume, resume_id)
+            resume_obj = session.get(Resume, resume_id)
+            resume = _unwrap_row(resume_obj)
             if not resume or (user_id and resume.user_id != user_id):
                 raise ValueError(f"Resume not found: {resume_id}")
 
@@ -335,7 +377,8 @@ class Database:
     def update_job(self, job_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Update a job by ID."""
         with self.get_session() as session:
-            job = session.get(Job, job_id)
+            job_obj = session.get(Job, job_id)
+            job = _unwrap_row(job_obj)
             if not job or (user_id and job.user_id != user_id):
                 return None
             for key, value in updates.items():

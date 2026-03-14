@@ -102,15 +102,19 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
                     job_keywords=keywords or {},
                 ))
                 if ats_result:
-                    updates["ats_score"] = ats_result.get("overall_score")
+                    logger.info(f"ATS Result for {resume_id}: {ats_result}")
+                    # Map 'totalScore' from prompt to 'ats_score' in DB
+                    updates["ats_score"] = ats_result.get("totalScore") or ats_result.get("overall_score")
                     updates["ats_breakdown"] = ats_result.get("breakdown")
+                else:
+                    logger.warning(f"ATS Scoring returned no result for resume {resume_id}")
             else:
                 logger.warning(f"Job {job_id} not found for scoring resume {resume_id}")
 
         db.update_resume(resume_id, updates)
-        logger.info(f"Successfully processed (and scored) resume {resume_id}")
+        logger.info(f"Successfully processed (and scored) resume {resume_id} with status {updates.get('processing_status')}")
     except Exception as e:
-        logger.error(f"Failed to process/score resume {resume_id}: {e}")
+        logger.error(f"Failed to process/score resume {resume_id}: {e}", exc_info=True)
         db.update_resume(resume_id, {"processing_status": "failed"})
 
 @celery_app.task(name="generate_tailored_resume_task")

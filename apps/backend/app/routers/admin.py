@@ -294,7 +294,7 @@ async def bulk_upload_resumes(
                     "message": "Downloaded from URL"
                 })
             except Exception as proc_err:
-                logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err)
+                logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err, exc_info=True)
                 results.append({
                     "filename": filename,
                     "user_id": user_id,

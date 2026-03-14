@@ -1,0 +1,13 @@
+
+> resume-matcher-ui@1.1.0 dev
+> next dev --turbopack
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.6.60.27:3000
+- Experiments (use with caution):
+  ✓ turbopackUseSystemTlsCerts
+
+✓ Starting...
+✓ Ready in 768ms
+ GET /api/health 404 in 1806ms (compile: 1743ms, render: 63ms)

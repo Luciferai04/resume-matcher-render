@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 
@@ -31,13 +32,20 @@ from app.routers import admin_router, config_router, enrichment_router, health_r
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    # PDF renderer uses lazy initialization - will initialize on first use
-    # await init_pdf_renderer()
+    logger.info("Starting up Resume Matcher API...")
+    try:
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Data directory verified: %s", settings.data_dir)
+    except Exception as e:
+        logger.error("Failed to create data directory: %s", e)
+    
+    logger.info("Startup complete.")
     yield
     # Shutdown - wrap each cleanup in try-except to ensure all resources are released
+    logger.info("Shutting down Resume Matcher API...")
     try:
         await close_pdf_renderer()
+        logger.info("PDF renderer closed.")
     except Exception as e:
         logger.error(f"Error closing PDF renderer: {e}")
 
@@ -50,9 +58,11 @@ app = FastAPI(
 )
 
 # CORS middleware - origins configurable via CORS_ORIGINS env var
+# In production with a proxy, we use allow_origin_regex or a more permissive setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"] if settings.llm_provider == "ollama" else settings.cors_origins,
+    allow_origin_regex=os.environ.get("CORS_ORIGIN_REGEX"),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

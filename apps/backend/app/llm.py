@@ -281,12 +281,12 @@ def get_model_name(config: LLMConfig) -> str:
 def _supports_temperature(provider: str, model: str) -> bool:
     """Return whether passing `temperature` is supported for this model/provider combo.
 
-    Some models (e.g., OpenAI gpt-5 family) reject temperature values other than 1,
-    and LiteLLM may error when temperature is passed.
+    Some models (e.g., OpenAI gpt-5 family) reject temperature values other than 1.
+    Gemini 3 models also strongly recommend temperature 1.0 to avoid loops.
     """
     _ = provider
     model_lower = model.lower()
-    if "gpt-5" in model_lower:
+    if "gpt-5" in model_lower or "gemini-3" in model_lower:
         return False
     return True
 
@@ -473,21 +473,20 @@ def _appears_truncated(data: dict) -> bool:
     if is_ats or is_swot or is_enrichment:
         return False
 
-    # Check for empty arrays that should typically have content in a resume
-    suspicious_empty_arrays = ["workExperience", "education", "skills"]
-    for key in suspicious_empty_arrays:
-        if key in data and data[key] == []:
-            # Only trigger if other resume fields are present (confirming it IS a resume)
-            if any(k in data for k in resume_keys if k != key):
-                logging.warning("Possible truncation detected: '%s' is empty", key)
-                return True
-
     # Check for missing critical sections ONLY if it looks like a resume
-    # if it has work experience or education but no personalInfo, it's likely truncated
-    if any(k in data for k in ["workExperience", "education", "summary", "personalProjects"]):
-        if "personalInfo" not in data:
-            logging.warning("Possible truncation detected: missing required section 'personalInfo'")
-            return True
+    # if it has some content but no personalInfo, it's highly likely truncated
+    # since personalInfo is usually at the start or a primary requirement.
+    resume_content_keys = ["workExperience", "education", "summary", "personalProjects", "skills"]
+    has_content = any(k in data and data[k] for k in resume_content_keys)
+    
+    if has_content and "personalInfo" not in data:
+        logging.warning("Possible truncation detected: missing required section 'personalInfo'")
+        return True
+
+    # Check for complete emptiness which suggests extraction failure
+    if not has_content and "personalInfo" not in data:
+        logging.warning("Possible truncation detected: response contains no recognizable resume sections")
+        return True
 
     return False
 

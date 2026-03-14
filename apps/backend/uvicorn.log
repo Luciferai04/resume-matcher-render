@@ -1,0 +1,94 @@
+2026-03-13 23:49:39,034 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [12548]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[92m23:51:13 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-13 23:51:13,220 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+INFO:     127.0.0.1:62355 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62804 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:63356 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:63689 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:64364 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:64656 - "POST /api/v1/admin/cohorts HTTP/1.1" 200 OK
+2026-03-14 01:40:51,574 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,575 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,577 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,578 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,579 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,580 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,581 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,582 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,584 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,585 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,586 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,587 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,588 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,589 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,591 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,591 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,592 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,592 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,593 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,593 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,594 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,595 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,596 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,597 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 01:40:51,667 [WARNING] app.routers.admin: Celery dispatch failed for test.pdf, trying inline: No module named 'celery'
+2026-03-14 01:40:51,667 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m01:40:51 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 01:40:51,684 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m01:40:51 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 01:40:51,685 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+INFO:     127.0.0.1:64656 - "POST /api/v1/admin/cohorts/b60e124f-cd8f-47a7-b26a-f76d1763a20c/bulk-upload-resumes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65050 - "POST /api/v1/admin/cohorts HTTP/1.1" 200 OK
+2026-03-14 01:55:03,373 [INFO] app.routers.admin: Successfully decoded CSV using utf-8-sig
+2026-03-14 01:55:03,376 [INFO] app.routers.admin: Attempting to create 1 students for cohort edc7be67-3aef-466d-97fe-b7c4aecd0969
+2026-03-14 01:55:03,382 [INFO] app.routers.admin: Downloading resume from URL for student TEST01: https://raw.githubusercontent.com/soumyajitghosh/Resume-Matcher/main/test.pdf
+2026-03-14 01:55:03,989 [ERROR] app.services.downloader: Failed to download file from https://raw.githubusercontent.com/soumyajitghosh/Resume-Matcher/main/test.pdf: Client error '404 Not Found' for url 'https://raw.githubusercontent.com/soumyajitghosh/Resume-Matcher/main/test.pdf'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+INFO:     127.0.0.1:65050 - "POST /api/v1/admin/cohorts/edc7be67-3aef-466d-97fe-b7c4aecd0969/bulk-upload-resumes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65079 - "POST /api/v1/admin/cohorts HTTP/1.1" 200 OK
+2026-03-14 01:55:45,774 [INFO] app.routers.admin: Successfully decoded CSV using utf-8-sig
+2026-03-14 01:55:45,774 [INFO] app.routers.admin: Attempting to create 1 students for cohort 6f93bc42-253f-4f5e-bb21-0826429f1150
+2026-03-14 01:55:45,779 [INFO] app.routers.admin: Downloading resume from URL for student TEST02: https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
+2026-03-14 01:55:45,995 [WARNING] app.routers.admin: Celery dispatch failed, trying inline: No module named 'celery'
+2026-03-14 01:55:46,006 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m01:55:46 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 01:55:46,043 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m01:55:46 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 01:55:46,044 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 01:55:48,236 [WARNING] root: Possible truncation detected: 'workExperience' is empty
+2026-03-14 01:55:48,239 [WARNING] root: JSON response suspicious, retrying: Response appeared truncated or incomplete
+[92m01:55:48 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 01:55:48,240 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m01:55:48 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 01:55:48,241 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+INFO:     127.0.0.1:65079 - "POST /api/v1/admin/cohorts/6f93bc42-253f-4f5e-bb21-0826429f1150/bulk-upload-resumes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65155 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:49194 - "POST /api/v1/admin/cohorts HTTP/1.1" 200 OK
+2026-03-14 02:13:30,703 [INFO] app.routers.admin: Successfully decoded CSV using utf-8-sig
+2026-03-14 02:13:30,711 [INFO] app.routers.admin: Attempting to create 1 students for cohort dab2e943-c02d-427f-bd58-4c672d0b8d15
+2026-03-14 02:13:30,763 [INFO] app.routers.admin: Downloading resume from URL for student TEST02: https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
+2026-03-14 02:13:32,346 [WARNING] app.routers.admin: Celery dispatch failed, trying inline: No module named 'celery'
+2026-03-14 02:13:32,352 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m02:13:32 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 02:13:32,574 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m02:13:32 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 02:13:32,579 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+INFO:     127.0.0.1:49194 - "POST /api/v1/admin/cohorts/dab2e943-c02d-427f-bd58-4c672d0b8d15/bulk-upload-resumes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49866 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:51898 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:54871 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:56491 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
