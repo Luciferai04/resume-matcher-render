@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app.database import db
 from app.services.parser import parse_document, parse_resume_to_json
 from app.services.downloader import download_file
-from app.services.ats_scorer import score_and_update_resume
+from app.services.ats_scorer import score_and_update_resume, calculate_ats_score
 
 logger = logging.getLogger(__name__)
 
@@ -141,132 +141,220 @@ async def bulk_upload_resumes(
     Filenames are used to match students by user_id or name.
     Files named like 'student_001.pdf' will be assigned to user_id='student_001'.
     """
-    cohort = db.get_cohort(cohort_id)
-    if not cohort:
-        raise HTTPException(status_code=404, detail="Cohort not found")
+    try:
+        cohort = db.get_cohort(cohort_id)
+        if not cohort:
+            raise HTTPException(status_code=404, detail="Cohort not found")
 
-    import csv
-    import io
+        import csv
+        import io
 
-    csv_file = next((f for f in files if f.filename and f.filename.lower().endswith(".csv")), None)
-    filename_map = {}
-    results = []
-    
-    if csv_file:
-        content = await csv_file.read()
+        csv_file = next((f for f in files if f.filename and f.filename.lower().endswith(".csv")), None)
+        filename_map = {}
+        results = []
+        
         unique_students = []
-        try:
-            # Detect encoding
-            text_content = None
-            for encoding in ["utf-8-sig", "utf-8", "latin-1", "cp1252"]:
-                try:
-                    text_content = content.decode(encoding)
-                    logger.info("Successfully decoded CSV using %s", encoding)
-                    break
-                except UnicodeDecodeError:
-                    continue
-            
-            if text_content is None:
-                raise ValueError("Could not decode CSV file with supported encodings (utf-8, latin-1, etc)")
-
-            reader = csv.DictReader(io.StringIO(text_content))
-            students_to_create = []
-            
-            for row in reader:
-                name_key = next((k for k in row.keys() if "Full Name" in str(k)), None)
-                roll_key = next((k for k in row.keys() if "Roll Number" in str(k) or "Student ID" in str(k)), None)
-                email_key = next((k for k in row.keys() if "Email Address" in str(k)), None)
-                college_key = next((k for k in row.keys() if "College/Institution" in str(k) or "Institution Name" in str(k)), None)
-                if not college_key:
-                     college_key = next((k for k in row.keys() if "College" in str(k) and "Email" not in str(k)), None)
-                
-                resume_url_key = next((k for k in row.keys() if "Upload Your Resume" in str(k)), None)
-                
-                name = row.get(name_key, "").strip() if name_key else None
-                roll = row.get(roll_key, "").strip() if roll_key else None
-                
-                if not name and not roll:
-                    continue
-                    
-                user_id = roll or str(uuid4())
-                name = name or f"Student {user_id}"
-                email = row.get(email_key, "").strip() if email_key else None
-                college = row.get(college_key, "").strip() if college_key else None
-                
-                info = {
-                    "user_id": user_id,
-                    "name": name,
-                    "email": email,
-                    "college": college,
-                    "roll_number": roll,
-                    "resume_url": row.get(resume_url_key, "").strip() if resume_url_key else None
-                }
-                students_to_create.append(info)
-            
-            seen_ids = set()
-            for s in students_to_create:
-                uid = s["user_id"]
-                if uid not in seen_ids:
-                    seen_ids.add(uid)
-                    unique_students.append(s)
-            
-            count: int = 0
-            if unique_students:
-                logger.info("Attempting to create %d students for cohort %s", len(unique_students), cohort_id)
-                try:
-                    db.bulk_create_users(cohort_id, unique_students)
-                    count = len(unique_students)
-                except Exception as bulk_err:
-                    logger.warning("Bulk create had issues: %s. Falling back to one-by-one.", bulk_err)
-                    for s in unique_students:
-                        try:
-                            db.create_user(
-                                name=s["name"],
-                                email=s.get("email") or "",
-                                cohort_id=cohort_id,
-                                user_id=s["user_id"],
-                                college=s.get("college"),
-                                roll_number=s.get("roll_number"),
-                            )
-                            count += 1
-                        except Exception as e:
-                            logger.error("Failed to create student %s: %s", s["name"], e)
-                
-            results.append({
-                "filename": csv_file.filename,
-                "status": "uploaded",
-                "message": f"Processed {len(unique_students)} rows, created/updated {count} students"
-            })
-        except Exception as e:
-            logger.error("Failed to parse CSV: %s", e)
-            results.append({
-                "filename": csv_file.filename if csv_file else "unknown.csv",
-                "status": "error",
-                "error": f"CSV Error: {str(e)}",
-            })
-
-        # Process resume URLs from CSV
-        for student in unique_students:
-            resume_url = student.get("resume_url")
-            if not resume_url or not resume_url.startswith("http"):
-                continue
-            
-            user_id = student["user_id"]
-            filename = f"resume_{user_id}.pdf"
-            
-            logger.info("Downloading resume from URL for student %s: %s", user_id, resume_url)
-            content = await download_file(resume_url)
-            
-            if not content:
-                results.append({
-                    "filename": filename,
-                    "user_id": user_id,
-                    "status": "error",
-                    "error": f"Failed to download resume from URL: {resume_url}",
-                })
-                continue
-            
+        if csv_file:
+            content = await csv_file.read()
             try:
+                # Detect encoding
+                text_content = None
+                for encoding in ["utf-8-sig", "utf-8", "latin-1", "cp1252"]:
+                    try:
+                        text_content = content.decode(encoding)
+                        logger.info("Successfully decoded CSV using %s", encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                
+                if text_content is None:
+                    raise ValueError("Could not decode CSV file with supported encodings (utf-8, latin-1, etc)")
+
+                reader = csv.DictReader(io.StringIO(text_content))
+                students_to_create = []
+                
+                for row in reader:
+                    name_key = next((k for k in row.keys() if k and "Full Name" in str(k)), None)
+                    roll_key = next((k for k in row.keys() if k and ("Roll Number" in str(k) or "Student ID" in str(k))), None)
+                    email_key = next((k for k in row.keys() if k and "Email Address" in str(k)), None)
+                    college_key = next((k for k in row.keys() if k and ("College/Institution" in str(k) or "Institution Name" in str(k))), None)
+                    if not college_key:
+                         college_key = next((k for k in row.keys() if k and ("College" in str(k) and "Email" not in str(k))), None)
+                    
+                    resume_url_key = next((k for k in row.keys() if k and "Upload Your Resume" in str(k)), None)
+                    
+                    name = row.get(name_key, "").strip() if name_key else None
+                    roll = row.get(roll_key, "").strip() if roll_key else None
+                    
+                    if not name and not roll:
+                        continue
+                        
+                    user_id = roll or str(uuid4())
+                    name = name or f"Student {user_id}"
+                    email = row.get(email_key, "").strip() if email_key else None
+                    college = row.get(college_key, "").strip() if college_key else None
+                    
+                    info = {
+                        "user_id": user_id,
+                        "name": name,
+                        "email": email,
+                        "college": college,
+                        "roll_number": roll,
+                        "resume_url": row.get(resume_url_key, "").strip() if resume_url_key else None
+                    }
+                    students_to_create.append(info)
+                
+                seen_ids = set()
+                for s in students_to_create:
+                    uid = s["user_id"]
+                    if uid not in seen_ids:
+                        seen_ids.add(uid)
+                        unique_students.append(s)
+                
+                count: int = 0
+                if unique_students:
+                    logger.info("Attempting to create %d students for cohort %s", len(unique_students), cohort_id)
+                    try:
+                        db.bulk_create_users(cohort_id, unique_students)
+                        count = len(unique_students)
+                    except Exception as bulk_err:
+                        logger.warning("Bulk create had issues: %s. Falling back to one-by-one.", bulk_err)
+                        for s in unique_students:
+                            try:
+                                db.create_user(
+                                    name=s["name"],
+                                    email=s.get("email") or "",
+                                    cohort_id=cohort_id,
+                                    user_id=s["user_id"],
+                                    college=s.get("college"),
+                                    roll_number=s.get("roll_number"),
+                                )
+                                count += 1
+                            except Exception as e:
+                                logger.error("Failed to create student %s: %s", s["name"], e)
+                    
+                results.append({
+                    "filename": csv_file.filename,
+                    "status": "uploaded",
+                    "message": f"Processed {len(unique_students)} rows, created/updated {count} students"
+                })
+            except Exception as e:
+                logger.error("Failed to parse CSV: %s", e)
+                results.append({
+                    "filename": csv_file.filename if csv_file else "unknown.csv",
+                    "status": "error",
+                    "error": f"CSV Error: {str(e)}",
+                })
+
+            # Process resume URLs from CSV
+            for student in unique_students:
+                resume_url = student.get("resume_url")
+                if not resume_url or not resume_url.startswith("http"):
+                    continue
+                
+                user_id = student["user_id"]
+                filename = f"resume_{user_id}.pdf"
+                
+                logger.info("Downloading resume from URL for student %s: %s", user_id, resume_url)
+                downloaded_content = await download_file(resume_url)
+                
+                if not downloaded_content:
+                    results.append({
+                        "filename": filename,
+                        "user_id": user_id,
+                        "status": "error",
+                        "error": f"Failed to download resume from URL: {resume_url}",
+                    })
+                    continue
+                
+                try:
+                    markdown_content = await parse_document(downloaded_content, filename)
+                    resume = await db.create_resume_atomic_master(
+                        content=markdown_content,
+                        content_type="md",
+                        filename=filename,
+                        processing_status="processing",
+                        user_id=user_id,
+                    )
+                    
+                    try:
+                        from app.worker import process_and_score_resume_task
+                        process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
+                    except Exception as worker_err:
+                        logger.warning("Celery dispatch failed, trying inline: %s", worker_err)
+                        processed_data = await parse_resume_to_json(markdown_content)
+                        db.update_resume(resume["resume_id"], {
+                            "processed_data": processed_data,
+                            "processing_status": "ready",
+                        }, user_id=user_id)
+                        
+                        # Also try to score if job_id is provided
+                        if job_id:
+                            await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
+                    
+                    results.append({
+                        "filename": filename,
+                        "user_id": user_id,
+                        "resume_id": resume["resume_id"],
+                        "status": "uploaded",
+                        "message": "Downloaded from URL"
+                    })
+                except Exception as proc_err:
+                    logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err, exc_info=True)
+                    results.append({
+                        "filename": filename,
+                        "user_id": user_id,
+                        "status": "error",
+                        "error": f"Processing failed: {str(proc_err)}",
+                    })
+
+        # Match files to students
+        students = db.get_cohort_students_progress(cohort_id)
+        user_by_id = {s["user_id"]: s for s in students if s.get("user_id")}
+        user_by_name = {s["name"].lower().strip(): s for s in students if s.get("name")}
+
+        # Filter out the CSV file from the actual processing loop
+        files_to_process = [f for f in files if f.filename and not f.filename.lower().endswith(".csv")]
+
+        for file in files_to_process:
+            filename = file.filename or "resume.pdf"
+            stem = filename.rsplit(".", 1)[0].strip()
+
+            # Try to match by user_id or name
+            matched_user = user_by_id.get(stem) or user_by_name.get(stem.lower())
+
+            if not matched_user:
+                # Auto-create user with filename as ID if no match found
+                try:
+                    user = db.create_user(
+                        name=stem.replace("_", " ").title(),
+                        email=f"{stem}@cohort.local",
+                        cohort_id=cohort_id,
+                        user_id=stem,
+                    )
+                    matched_user = user
+                    user_by_id[stem] = user
+                except Exception as e:
+                    results.append({
+                        "filename": filename,
+                        "status": "error",
+                        "error": f"Failed to create user: {str(e)}",
+                    })
+                    continue
+
+            user_id = matched_user["user_id"]
+
+            try:
+                content = await file.read()
+                if len(content) == 0:
+                    results.append({
+                        "filename": filename,
+                        "user_id": user_id,
+                        "status": "error",
+                        "error": "Empty file",
+                    })
+                    continue
+
                 markdown_content = await parse_document(content, filename)
                 resume = await db.create_resume_atomic_master(
                     content=markdown_content,
@@ -275,136 +363,52 @@ async def bulk_upload_resumes(
                     processing_status="processing",
                     user_id=user_id,
                 )
-                
+
                 try:
                     from app.worker import process_and_score_resume_task
                     process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
                 except Exception as worker_err:
-                    logger.warning("Celery dispatch failed, trying inline: %s", worker_err)
-                    processed_data = await parse_resume_to_json(markdown_content)
-                    db.update_resume(resume["resume_id"], {
-                        "processed_data": processed_data,
-                        "processing_status": "ready",
-                    }, user_id=user_id)
-                    
-                    # Also try to score if job_id is provided
-                    if job_id:
-                        await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
-                
+                    logger.warning("Celery dispatch failed for %s, trying inline: %s", filename, worker_err)
+                    try:
+                        processed_data = await parse_resume_to_json(markdown_content)
+                        db.update_resume(resume["resume_id"], {
+                            "processed_data": processed_data,
+                            "processing_status": "ready",
+                        }, user_id=user_id)
+                        
+                        # Also try to score if job_id is provided
+                        if job_id:
+                            await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
+                    except Exception as inline_err:
+                        logger.error("Inline processing failed for %s: %s", filename, inline_err)
+                        db.update_resume(resume["resume_id"], {
+                            "processing_status": "failed",
+                        }, user_id=user_id)
+
                 results.append({
                     "filename": filename,
                     "user_id": user_id,
                     "resume_id": resume["resume_id"],
                     "status": "uploaded",
-                    "message": "Downloaded from URL"
                 })
-            except Exception as proc_err:
-                logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err, exc_info=True)
-                results.append({
-                    "filename": filename,
-                    "user_id": user_id,
-                    "status": "error",
-                    "error": f"Processing failed: {str(proc_err)}",
-                })
-
-    # Match files to students
-    students = db.get_cohort_students_progress(cohort_id)
-    user_by_id = {s["user_id"]: s for s in students}
-    user_by_name = {s["name"].lower().strip(): s for s in students}
-
-    # Filter out the CSV file from the actual processing loop
-    files_to_process = [f for f in files if f.filename and not f.filename.lower().endswith(".csv")]
-
-    for file in files_to_process:
-        filename = file.filename or "resume.pdf"
-        stem = filename.rsplit(".", 1)[0].strip()
-
-        # Try to match by user_id or name
-        matched_user = user_by_id.get(stem) or user_by_name.get(stem.lower())
-
-        if not matched_user:
-            # Auto-create user with filename as ID if no match found
-            try:
-                user = db.create_user(
-                    name=stem.replace("_", " ").title(),
-                    email=f"{stem}@cohort.local",
-                    cohort_id=cohort_id,
-                    user_id=stem,
-                )
-                matched_user = user
-                user_by_id[stem] = user
             except Exception as e:
-                results.append({
-                    "filename": filename,
-                    "status": "error",
-                    "error": f"Failed to create user: {str(e)}",
-                })
-                continue
-
-        user_id = matched_user["user_id"]
-
-        try:
-            content = await file.read()
-            if len(content) == 0:
+                logger.error("Failed to process %s: %s", filename, e)
                 results.append({
                     "filename": filename,
                     "user_id": user_id,
                     "status": "error",
-                    "error": "Empty file",
+                    "error": str(e),
                 })
-                continue
 
-            markdown_content = await parse_document(content, filename)
-            resume = await db.create_resume_atomic_master(
-                content=markdown_content,
-                content_type="md",
-                filename=filename,
-                processing_status="processing",
-                user_id=user_id,
-            )
-
-            try:
-                from app.worker import process_and_score_resume_task
-                process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
-            except Exception as worker_err:
-                logger.warning("Celery dispatch failed for %s, trying inline: %s", filename, worker_err)
-                try:
-                    processed_data = await parse_resume_to_json(markdown_content)
-                    db.update_resume(resume["resume_id"], {
-                        "processed_data": processed_data,
-                        "processing_status": "ready",
-                    }, user_id=user_id)
-                    
-                    # Also try to score if job_id is provided
-                    if job_id:
-                        await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
-                except Exception as inline_err:
-                    logger.error("Inline processing failed for %s: %s", filename, inline_err)
-                    db.update_resume(resume["resume_id"], {
-                        "processing_status": "failed",
-                    }, user_id=user_id)
-
-            results.append({
-                "filename": filename,
-                "user_id": user_id,
-                "resume_id": resume["resume_id"],
-                "status": "uploaded",
-            })
-        except Exception as e:
-            logger.error("Failed to process %s: %s", filename, e)
-            results.append({
-                "filename": filename,
-                "user_id": user_id,
-                "status": "error",
-                "error": str(e),
-            })
-
-    uploaded = sum(1 for r in results if r["status"] == "uploaded")
-    failed = sum(1 for r in results if r["status"] == "error")
-    return {
-        "message": f"Bulk upload completed: {uploaded} successful, {failed} failed",
-        "results": results,
-    }
+        uploaded = sum(1 for r in results if r["status"] == "uploaded")
+        failed = sum(1 for r in results if r["status"] == "error")
+        return {
+            "message": f"Bulk upload completed: {uploaded} successful, {failed} failed",
+            "results": results,
+        }
+    except Exception as e:
+        logger.exception("Critial error in bulk_upload_resumes")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 # ─── Stats & Leaderboard ──────────────────────────────────────────────────────

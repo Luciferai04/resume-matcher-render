@@ -255,18 +255,17 @@ class Database:
         """Create a new resume with atomic master assignment."""
         async with self._master_resume_lock:
             current_master = self.get_master_resume(user_id=user_id)
-            is_master = current_master is None
+            is_master = True # For bulk uploads, we often want the newest to be master.
 
-            if current_master and current_master.get("processing_status") == "failed":
+            if current_master:
+                # Demote old master
                 with self.get_session() as session:
-                    stmt = select(Resume).where(Resume.resume_id == current_master["resume_id"])
-                    old_master_row = session.exec(stmt).first()
+                    old_master_row = session.get(Resume, current_master["resume_id"])
                     if old_master_row:
                         old_master = _unwrap_row(old_master_row)
                         old_master.is_master = False
                         session.add(old_master)
                         session.commit()
-                is_master = True
 
             return self.create_resume(
                 content=content,
@@ -454,6 +453,15 @@ class Database:
             cohorts = session.exec(select(Cohort)).all()
             return [_to_dict(c) for c in cohorts]
 
+    def list_jobs(self, user_id: Optional[str] = None) -> list[dict[str, Any]]:
+        """List all jobs."""
+        with self.get_session() as session:
+            statement = select(Job)
+            if user_id:
+                statement = statement.where(Job.user_id == user_id)
+            jobs = session.exec(statement).all()
+            return [_to_dict(j) for j in jobs]
+
     def bulk_create_users(self, cohort_id: str, students: list[dict[str, str]]) -> list[dict[str, Any]]:
         """Bulk create or update users for a cohort."""
         results = []
@@ -519,13 +527,17 @@ class Database:
                     select(func.count()).select_from(Job).where(Job.user_id == user.user_id)
                 ) or 0
 
+                master_obj = _unwrap_row(master) if master else None
+
                 # Determine status
                 if not master:
                     status = "not_started"
-                elif master and _unwrap_row(master).processing_status == "failed":
+                elif master_obj and master_obj.processing_status == "failed":
                     status = "upload_failed"
-                elif master and _unwrap_row(master).processing_status == "processing":
+                elif master_obj and master_obj.processing_status == "processing":
                     status = "processing"
+                elif master_obj and master_obj.ats_score is not None:
+                    status = "scored"
                 elif tailored_count > 0:
                     status = "improved"
                 elif job_count > 0:
@@ -533,7 +545,6 @@ class Database:
                 else:
                     status = "uploaded"
 
-                master_obj = _unwrap_row(master) if master else None
                 user_dict["progress"] = {
                     "status": status,
                     "has_resume": master is not None,

@@ -179,6 +179,7 @@ export default function AdminPage() {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [activeTab, setActiveTab] = useState<'students' | 'leaderboard'>('students');
     const [loading, setLoading] = useState(false);
+    const [jobs, setJobs] = useState<any[]>([]);
     const [creating, setCreating] = useState(false);
     const [newCohortName, setNewCohortName] = useState('');
     const [bulkStudentText, setBulkStudentText] = useState('');
@@ -191,7 +192,10 @@ export default function AdminPage() {
     const [scoringJobId, setScoringJobId] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { fetchCohorts(); }, []);
+    useEffect(() => { 
+        fetchCohorts(); 
+        fetchJobs();
+    }, []);
 
     const fetchCohorts = async () => {
         try {
@@ -202,6 +206,14 @@ export default function AdminPage() {
                 setSelectedCohort(data.cohorts[0].cohort_id);
             }
         } catch (err) { console.error('Failed to fetch cohorts:', err); }
+    };
+
+    const fetchJobs = async () => {
+        try {
+            const res = await apiFetch('/jobs');
+            const data = await res.json();
+            setJobs(data.jobs || []);
+        } catch (err) { console.error('Failed to fetch jobs:', err); }
     };
 
     const fetchCohortData = useCallback(async (cohortId: string) => {
@@ -463,10 +475,17 @@ export default function AdminPage() {
                             style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
                         >
                             <option value="">No scoring (Parse only)</option>
-                            {/* We could fetch jobs here, for now using a dynamic list if we had one */}
-                            <optgroup label="Available Jobs">
-                                <option value="9008b704-cba9-4825-bc8b-3f80971036dd">Demo Job Description</option>
-                            </optgroup>
+                            {jobs.length > 0 ? (
+                                <optgroup label="Available Jobs">
+                                    {jobs.map(j => (
+                                        <option key={j.job_id} value={j.job_id}>
+                                            {j.content.substring(0, 50)}...
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ) : (
+                                <option disabled>No jobs found in database</option>
+                            )}
                         </select>
                     </div>
                 </div>

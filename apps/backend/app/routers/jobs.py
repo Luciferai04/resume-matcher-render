@@ -10,6 +10,13 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
+@router.get("/")
+async def list_jobs(user_id: Optional[str] = Depends(get_current_user)):
+    """List all job descriptions."""
+    jobs = db.list_jobs(user_id=user_id)
+    return {"jobs": jobs}
+
+
 @router.post("/upload", response_model=JobUploadResponse)
 async def upload_job_descriptions(
     request: JobUploadRequest,

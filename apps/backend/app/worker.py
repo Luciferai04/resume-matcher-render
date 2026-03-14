@@ -93,6 +93,7 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
         # 2. Optionally score against job
         if job_id and job_id.strip():
             logger.info(f"Calculating ATS score for resume {resume_id} against job {job_id}")
+            from app.services.ats_scorer import score_and_update_resume
             run_async(score_and_update_resume(resume_id, processed_data, job_id))
 
         db.update_resume(resume_id, updates)
