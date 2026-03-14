@@ -73,6 +73,10 @@ class LeaderboardEntry(BaseModel):
 
 # ─── Diagnostic Endpoints ─────────────────────────────────────────────────────
 
+@router.get("/diag/ping")
+async def diag_ping():
+    return {"status": "ok", "message": "Admin diag is accessible"}
+
 @router.get("/diag/schema")
 async def check_schema():
     """Check database schema for Resume table."""
