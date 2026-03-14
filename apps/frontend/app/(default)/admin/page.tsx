@@ -216,22 +216,33 @@ export default function AdminPage() {
         } catch (err) { console.error('Failed to fetch jobs:', err); }
     };
 
-    const fetchCohortData = useCallback(async (cohortId: string) => {
-        setLoading(true);
+    const fetchCohortData = useCallback(async (cohortId: string, silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const [sR, stR, lR] = await Promise.all([
                 apiFetch(`/admin/cohorts/${cohortId}/students`),
                 apiFetch(`/admin/cohorts/${cohortId}/stats`),
                 apiFetch(`/admin/cohorts/${cohortId}/leaderboard`),
             ]);
-            setStudents((await sR.json()).students || []);
-            setStats(await stR.json());
-            setLeaderboard((await lR.json()).leaderboard || []);
+            const [sD, stD, lD] = await Promise.all([sR.json(), stR.json(), lR.json()]);
+            setStudents(sD.students || []);
+            setStats(stD);
+            setLeaderboard(lD.leaderboard || []);
         } catch (err) { console.error('Failed to fetch cohort data:', err); }
-        finally { setLoading(false); }
+        finally { if (!silent) setLoading(false); }
     }, []);
 
     useEffect(() => { if (selectedCohort) fetchCohortData(selectedCohort); }, [selectedCohort, fetchCohortData]);
+
+    // Polling for processing students
+    useEffect(() => {
+        if (!selectedCohort || loading) return;
+        const hasProcessing = students.some(s => s.progress.status === 'processing' || s.progress.status === 'pending');
+        if (hasProcessing) {
+            const timer = setTimeout(() => fetchCohortData(selectedCohort, true), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedCohort, students, loading, fetchCohortData]);
 
     const handleCreateCohort = async () => {
         if (!newCohortName.trim()) return;
@@ -421,13 +432,21 @@ export default function AdminPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     {selectedCohort && (
-                        <a
-                            href={`/report/${selectedCohort}`}
-                            target="_blank"
-                            style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                            ↗ View Report
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {students.some(s => s.progress.status === 'processing' || s.progress.status === 'pending') && (
+                                <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: BLUE, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ width: '6px', height: '6px', background: BLUE, borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                                    Auto-refreshing...
+                                </div>
+                            )}
+                            <a
+                                href={`/report/${selectedCohort}`}
+                                target="_blank"
+                                style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                                ↗ View Report
+                            </a>
+                        </div>
                     )}
                     <a href="/" style={{ ...btnGhost, textDecoration: 'none', background: '#222', color: '#ccc', border: '2px solid #444' }}>
                         ← Back
@@ -715,7 +734,14 @@ export default function AdminPage() {
                         )}
                     </>
                 )}
-            </div>
-        </div >
+            <style>{`
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                    100% { opacity: 1; }
+                }
+            `}</style>
+        </div>
+      </div>
     );
 }

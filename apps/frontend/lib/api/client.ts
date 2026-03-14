@@ -22,6 +22,7 @@ export async function apiFetch(endpoint: string, options?: RequestInit): Promise
   headers.set('X-User-ID', getUserId());
 
   return fetch(url, {
+    cache: 'no-store',
     ...options,
     headers,
   });

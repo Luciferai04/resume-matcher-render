@@ -175,6 +175,21 @@ export default function DashboardPage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadTailoredResumes, checkResumeStatus]);
 
+  // Auto-refresh while processing
+  useEffect(() => {
+    const isMasterProcessing = processingStatus === 'processing' || processingStatus === 'pending';
+    const hasTailoredProcessing = tailoredResumes.some(
+      (r) => r.processing_status === 'processing' || r.processing_status === 'pending'
+    );
+
+    if (isMasterProcessing || hasTailoredProcessing) {
+      const timer = setTimeout(() => {
+        loadTailoredResumes();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [processingStatus, tailoredResumes, loadTailoredResumes]);
+
   const handleUploadComplete = (resumeId: string) => {
     localStorage.setItem('master_resume_id', resumeId);
     setMasterResumeId(resumeId);
