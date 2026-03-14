@@ -3,6 +3,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiPost, API_BASE } from '@/lib/api/client';
 import { getUserId } from '@/lib/api/auth';
+import { 
+    Plus, Upload, FileText, CheckCircle2, AlertCircle, 
+    Trophy, Users, Search, ChevronRight, BarChart3, 
+    ArrowLeft, ExternalLink, RefreshCw 
+} from 'lucide-react';
 
 /* ─── Types ───────────────────────────────────────────────────────────── */
 
@@ -23,14 +28,15 @@ interface StudentProgress {
     tailored_count: number;
     job_count: number;
     resume_uploaded_at: string | null;
+    error?: string | null;
 }
 
 interface Student {
     user_id: string;
     name: string;
-    email: string | null;
-    college: string | null;
-    roll_number: string | null;
+    email?: string;
+    roll_number?: string;
+    college?: string;
     progress: StudentProgress;
 }
 
@@ -47,7 +53,9 @@ interface LeaderboardEntry {
     rank: number;
     user_id: string;
     name: string;
+    email: string | null;
     ats_score: number | null;
+    resume_filename: string | null;
     tailored_count: number;
     status: string;
 }
@@ -100,53 +108,24 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-/* ─── Stat Card (Swiss) ───────────────────────────────────────────────── */
+/* ─── UI Components ───────────────────────────────────────────────────── */
 
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
     return (
-        <div
-            style={{
-                background: CANVAS,
-                border: `2px solid ${INK}`,
-                boxShadow: SHADOW_SM,
-                padding: '20px 24px',
-                flex: '1 1 0',
-                minWidth: '160px',
-            }}
-        >
-            <div
-                style={{
-                    fontFamily: FONT_SANS,
-                    fontSize: '36px',
-                    fontWeight: 800,
-                    color: accent,
-                    lineHeight: 1,
-                }}
-            >
-                {value}
-            </div>
-            <div
-                style={{
-                    fontFamily: FONT_MONO,
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    color: MUTED,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    marginTop: '6px',
-                }}
-            >
+        <div style={{ background: CANVAS, border: `2px solid ${INK}`, borderTop: `6px solid ${accent}`, boxShadow: SHADOW, padding: '16px', minWidth: '160px', flex: 1 }}>
+            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: MUTED, marginBottom: '8px', letterSpacing: '0.05em' }}>
                 {label}
+            </div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: '32px', fontWeight: 800, color: INK }}>
+                {value}
             </div>
         </div>
     );
 }
 
-/* ─── Rank Badge ──────────────────────────────────────────────────────── */
-
 function RankBadge({ rank }: { rank: number }) {
-    const bg = rank === 1 ? BLUE : rank === 2 ? INK : rank === 3 ? '#92400e' : PANEL;
-    const fg = rank <= 3 ? '#fff' : INK;
+    const bg = rank === 1 ? '#000' : rank === 2 ? PANEL : rank === 3 ? '#e5e5e0' : CANVAS;
+    const fg = rank === 1 ? '#fff' : INK;
     return (
         <div
             style={{
@@ -190,6 +169,7 @@ export default function AdminPage() {
     const [sortAsc, setSortAsc] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [scoringJobId, setScoringJobId] = useState('');
+    const [retrying, setRetrying] = useState<Record<string, boolean>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -272,7 +252,6 @@ export default function AdminPage() {
         finally { setCreating(false); }
     };
 
-
     const handleAddStudents = async () => {
         if (!selectedCohort || !bulkStudentText.trim()) return;
         setAddingStudents(true);
@@ -287,6 +266,19 @@ export default function AdminPage() {
             fetchCohortData(selectedCohort);
         } catch (err) { console.error(err); }
         finally { setAddingStudents(false); }
+    };
+
+    const handleRetry = async (userId: string) => {
+        setRetrying(prev => ({ ...prev, [userId]: true }));
+        try {
+            const query = scoringJobId.trim() ? `?job_id=${scoringJobId.trim()}` : '';
+            await apiPost(`/admin/students/${userId}/retry${query}`, {});
+            if (selectedCohort) fetchCohortData(selectedCohort, true);
+        } catch (err) {
+            console.error('Retry failed:', err);
+        } finally {
+            setRetrying(prev => ({ ...prev, [userId]: false }));
+        }
     };
 
     const handleBulkUpload = async (files: FileList) => {
@@ -316,13 +308,6 @@ export default function AdminPage() {
             
             const data = await res.json();
             setUploadResults(data.results || []);
-            
-            // Show alert if no students created from CSV
-            const csvResult = data.results?.find((r: any) => r.filename?.toLowerCase().endsWith('.csv'));
-            if (csvResult && csvResult.message && csvResult.message.includes('created/updated 0 students')) {
-                console.warn('CSV processed but 0 students were created.');
-            }
-            
             fetchCohortData(selectedCohort);
         } catch (err: any) { 
             console.error('Upload error:', err);
@@ -398,104 +383,101 @@ export default function AdminPage() {
         color: '#fff',
         border: `2px solid ${INK}`,
         boxShadow: SHADOW_SM,
-        padding: '8px 20px',
+        padding: '8px 24px',
         cursor: 'pointer',
     };
 
-    const btnGhost: React.CSSProperties = {
-        ...btnPrimary,
-        background: CANVAS,
-        color: INK,
-    };
-
     return (
-        <div style={{ minHeight: '100vh', background: CANVAS, fontFamily: FONT_SANS }}>
+        <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
             {/* Header */}
-            <div
-                style={{
-                    background: INK,
-                    color: '#fff',
-                    padding: '20px 40px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: `4px solid ${BLUE}`,
-                }}
-            >
-                <div>
-                    <h1 style={{ fontFamily: FONT_MONO, fontSize: '20px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-                        Cohort Admin
+            <header style={{ marginBottom: '48px', borderBottom: `4px solid ${INK}`, paddingBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
+                    <h1 style={{ fontFamily: FONT_MONO, fontSize: '48px', fontWeight: 900, textTransform: 'uppercase', color: INK, margin: 0, letterSpacing: '-0.02em' }}>
+                        Admin Terminal
                     </h1>
-                    <p style={{ fontFamily: FONT_MONO, fontSize: '11px', color: '#999', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Manage students · Track progress · ATS Leaderboard
-                    </p>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: '11px', color: MUTED, textTransform: 'uppercase', background: PANEL, padding: '4px 12px', border: `2px solid ${INK}` }}>
+                        V{API_BASE.includes('localhost') ? 'DEV' : 'PROD'} // COHORT MGMT
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    {selectedCohort && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {students.some(s => s.progress.status === 'processing' || s.progress.status === 'pending') && (
-                                <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: BLUE, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ width: '6px', height: '6px', background: BLUE, borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                                    Auto-refreshing...
-                                </div>
-                            )}
-                            <a
-                                href={`/report/${selectedCohort}`}
-                                target="_blank"
-                                style={{ ...btnPrimary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                ↗ View Report
-                            </a>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: '14px', textTransform: 'uppercase', color: BLUE, fontWeight: 700 }}>
+                        System Status: Operational
+                    </div>
+                    {students.some(s => s.progress.status === 'processing') && (
+                        <div style={{ fontFamily: FONT_MONO, fontSize: '12px', color: ORANGE, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '8px', height: '8px', background: ORANGE, borderRadius: '50%', animation: 'pulse 1s infinite' }} />
+                            Auto-refreshing resumes...
                         </div>
                     )}
-                    <a href="/" style={{ ...btnGhost, textDecoration: 'none', background: '#222', color: '#ccc', border: '2px solid #444' }}>
-                        ← Back
-                    </a>
                 </div>
-            </div>
+            </header>
 
-            <div style={{ padding: '32px 40px', maxWidth: '1400px', margin: '0 auto' }}>
-                {/* Cohort & Job Selectors */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', marginBottom: '32px', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1 1 300px' }}>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, marginBottom: '6px', textTransform: 'uppercase' }}>Select Cohort</div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <select
-                                value={selectedCohort || ''}
-                                onChange={e => setSelectedCohort(e.target.value)}
-                                style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
-                            >
-                                <option value="" disabled>Select cohort...</option>
-                                {cohorts.map(c => <option key={c.cohort_id} value={c.cohort_id}>{c.name}</option>)}
-                            </select>
+            {/* Main Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '40px' }}>
+                {/* Cohort Sidebar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                    <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px' }}>
+                        <h2 style={{ fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Users size={16} /> Cohorts
+                        </h2>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                            {cohorts.map(c => (
+                                <button
+                                    key={c.cohort_id}
+                                    onClick={() => setSelectedCohort(c.cohort_id)}
+                                    style={{
+                                        fontFamily: FONT_MONO,
+                                        fontSize: '13px',
+                                        textAlign: 'left',
+                                        padding: '12px 16px',
+                                        background: selectedCohort === c.cohort_id ? INK : 'transparent',
+                                        color: selectedCohort === c.cohort_id ? CANVAS : INK,
+                                        border: `2px solid ${INK}`,
+                                        cursor: 'pointer',
+                                        textTransform: 'uppercase',
+                                        fontWeight: 700,
+                                        transition: 'all 0.1s ease',
+                                    }}
+                                >
+                                    {c.name}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ borderTop: `2px solid ${INK}`, paddingTop: '20px' }}>
                             <input
                                 type="text"
                                 value={newCohortName}
                                 onChange={e => setNewCohortName(e.target.value)}
-                                placeholder="New cohort..."
-                                onKeyDown={e => e.key === 'Enter' && handleCreateCohort()}
-                                style={{ ...inputStyle, width: '120px' }}
+                                placeholder="New Cohort Name..."
+                                style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginBottom: '8px' }}
                             />
                             <button
                                 onClick={handleCreateCohort}
                                 disabled={creating || !newCohortName.trim()}
-                                style={{ ...btnPrimary, padding: '8px 12px', opacity: creating || !newCohortName.trim() ? 0.4 : 1 }}
+                                style={{ ...btnPrimary, width: '100%', opacity: creating || !newCohortName.trim() ? 0.4 : 1 }}
                             >
-                                {creating ? '...' : '+'}
+                                {creating ? 'Creating...' : 'Create Cohort'}
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <div style={{ flex: '1 1 300px' }}>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, marginBottom: '6px', textTransform: 'uppercase' }}>Target Job for Scoring</div>
+                {/* Content Area */}
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ marginBottom: '32px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: '12px', color: MUTED, textTransform: 'uppercase', paddingRight: '12px', borderRight: `2px solid ${PANEL}` }}>
+                            Job Focus:
+                        </div>
                         <select
                             value={scoringJobId}
                             onChange={e => setScoringJobId(e.target.value)}
-                            style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
+                            style={{ ...inputStyle, padding: '4px 12px', fontSize: '12px', textTransform: 'uppercase' }}
                         >
-                            <option value="">No scoring (Parse only)</option>
+                            <option value="">No Active Job (Automatic)</option>
                             {jobs.length > 0 ? (
-                                <optgroup label="Available Jobs">
+                                <optgroup label="Select Job">
                                     {jobs.map(j => (
                                         <option key={j.job_id} value={j.job_id}>
                                             {j.content.substring(0, 50)}...
@@ -507,241 +489,259 @@ export default function AdminPage() {
                             )}
                         </select>
                     </div>
-                </div>
 
-                {!selectedCohort ? (
-                    <div style={{ textAlign: 'center', color: MUTED, fontFamily: FONT_MONO, fontSize: '14px', padding: '80px 0', textTransform: 'uppercase' }}>
-                        Create or select a cohort to begin
-                    </div>
-                ) : loading ? (
-                    <div style={{ textAlign: 'center', color: MUTED, fontFamily: FONT_MONO, fontSize: '14px', padding: '80px 0', textTransform: 'uppercase' }}>
-                        Loading...
-                    </div>
-                ) : (
-                    <>
-                        {/* Stats */}
-                        {stats && (
-                            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
-                                <StatCard label="Total Students" value={stats.total_students} accent={INK} />
-                                <StatCard label="Resumes Uploaded" value={stats.resumes_uploaded} accent={BLUE} />
-                                <StatCard label="ATS Scored" value={stats.resumes_scored} accent={VIOLET} />
-                                <StatCard label="Avg ATS Score" value={stats.average_ats_score ?? '—'} accent={GREEN} />
-                                <StatCard label="Improved" value={stats.resumes_improved} accent={ORANGE} />
-                            </div>
-                        )}
-
-                        {/* Action Row */}
-                        <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
-                            {/* Add Students */}
-                            <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px', flex: '1 1 400px' }}>
-                                <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
-                                    Add Students
-                                </h3>
-                                <textarea
-                                    value={bulkStudentText}
-                                    onChange={e => setBulkStudentText(e.target.value)}
-                                    placeholder={"One per line: Name, Email, StudentID\ne.g.\nJohn Doe, john@college.edu, student_001"}
-                                    rows={4}
-                                    style={{ ...inputStyle, width: '100%', resize: 'vertical', boxSizing: 'border-box' }}
-                                />
-                                <button
-                                    onClick={handleAddStudents}
-                                    disabled={addingStudents || !bulkStudentText.trim()}
-                                    style={{ ...btnPrimary, marginTop: '8px', background: GREEN, opacity: addingStudents || !bulkStudentText.trim() ? 0.4 : 1 }}
-                                >
-                                    {addingStudents ? 'Adding...' : 'Add Students'}
-                                </button>
-                            </div>
-
-                            {/* Bulk Upload */}
-                            <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px', flex: '1 1 400px' }}>
-                                <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
-                                    Google Forms / Bulk Upload
-                                </h3>
-                                <div style={{ marginBottom: '12px' }}>
-                                    <input
-                                        type="text"
-                                        value={scoringJobId}
-                                        onChange={e => setScoringJobId(e.target.value)}
-                                        placeholder="Job ID for scoring (Optional)..."
-                                        style={{ ...inputStyle, width: '100%', fontSize: '11px', padding: '6px 10px', boxSizing: 'border-box' }}
-                                    />
-                                    <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: MUTED, marginTop: '4px', textTransform: 'uppercase' }}>
-                                        leave empty for manual scoring later
-                                    </div>
-                                </div>
-                                <div
-                                    onClick={() => !uploading && fileInputRef.current?.click()}
-                                    onDragOver={e => e.preventDefault()}
-                                    onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length > 0) handleBulkUpload(e.dataTransfer.files); }}
-                                    style={{
-                                        border: `2px dashed ${INK}`,
-                                        padding: '32px 20px',
-                                        textAlign: 'center',
-                                        cursor: uploading ? 'wait' : 'pointer',
-                                        background: PANEL,
-                                    }}
-                                >
-                                    <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.csv" style={{ display: 'none' }}
-                                        onChange={e => e.target.files && handleBulkUpload(e.target.files)} />
-                                    <div style={{ fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: INK }}>
-                                        {uploading ? 'Uploading...' : 'Drop Resumes & responses.csv here'}
-                                    </div>
-                                    <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, marginTop: '6px', textTransform: 'uppercase' }}>
-                                        CSV automatically maps files & adds students
-                                    </div>
-                                </div>
-                                {uploadResults && (
-                                    <div style={{ marginTop: '10px', fontFamily: FONT_MONO, fontSize: '11px' }}>
-                                        {uploadResults.map((r, i) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: r.status === 'uploaded' ? GREEN : RED }}>
-                                                <span>{r.filename}</span>
-                                                <span style={{ fontWeight: 700 }}>{r.status === 'uploaded' ? (r.message ? `✓ ${r.message}` : '✓ OK') : '✗ ' + (r.error || 'FAILED')}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                    {!selectedCohort ? (
+                        <div style={{ textAlign: 'center', color: MUTED, fontFamily: FONT_MONO, fontSize: '14px', padding: '80px 0', textTransform: 'uppercase' }}>
+                            Create or select a cohort to begin
                         </div>
-
-                        {/* Tabs */}
-                        <div style={{ display: 'flex', borderBottom: `2px solid ${INK}`, marginBottom: '0' }}>
-                            {(['students', 'leaderboard'] as const).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    style={{
-                                        fontFamily: FONT_MONO,
-                                        fontSize: '12px',
-                                        fontWeight: 700,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.08em',
-                                        padding: '12px 24px',
-                                        border: `2px solid ${INK}`,
-                                        borderBottom: activeTab === tab ? `2px solid ${CANVAS}` : `2px solid ${INK}`,
-                                        marginBottom: '-2px',
-                                        background: activeTab === tab ? CANVAS : PANEL,
-                                        color: activeTab === tab ? BLUE : MUTED,
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    {tab === 'students' ? '// Students' : '// Leaderboard'}
-                                </button>
-                            ))}
-                            {activeTab === 'students' && (
-                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                                    <input
-                                        type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                        placeholder="Search..."
-                                        style={{ ...inputStyle, fontSize: '11px', padding: '4px 10px', width: '180px', borderBottom: 'none' }}
-                                    />
+                    ) : loading ? (
+                        <div style={{ textAlign: 'center', color: MUTED, fontFamily: FONT_MONO, fontSize: '14px', padding: '80px 0', textTransform: 'uppercase' }}>
+                            Loading...
+                        </div>
+                    ) : (
+                        <>
+                            {/* Stats */}
+                            {stats && (
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
+                                    <StatCard label="Total Students" value={stats.total_students} accent={INK} />
+                                    <StatCard label="Resumes Uploaded" value={stats.resumes_uploaded} accent={BLUE} />
+                                    <StatCard label="ATS Scored" value={stats.resumes_scored} accent={VIOLET} />
+                                    <StatCard label="Avg ATS Score" value={stats.average_ats_score ?? '—'} accent={GREEN} />
+                                    <StatCard label="Improved" value={stats.resumes_improved} accent={ORANGE} />
                                 </div>
                             )}
-                        </div>
 
-                        {/* Students Table */}
-                        {activeTab === 'students' && (
-                            <div style={{ border: `2px solid ${INK}`, borderTop: 'none', background: CANVAS }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                        <tr>
-                                            <SortTh label="Name" k="name" />
-                                            <th style={thStyle}>Roll Number</th>
-                                            <th style={thStyle}>College</th>
-                                            <SortTh label="Status" k="status" />
-                                            <SortTh label="ATS Score" k="ats_score" />
-                                            <SortTh label="Tailored" k="tailored" />
-                                            <th style={thStyle}>Resume</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {sortedStudents.length === 0 ? (
-                                            <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '12px', color: MUTED, textTransform: 'uppercase' }}>
-                                                No students yet
-                                            </td></tr>
-                                        ) : sortedStudents.map(s => (
-                                            <tr key={s.user_id} style={{ borderBottom: `1px solid ${PANEL}` }}>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    <div style={{ fontFamily: FONT_SANS, fontWeight: 700, color: INK, fontSize: '14px' }}>{s.name}</div>
-                                                    {s.email && <div style={{ fontFamily: FONT_MONO, color: MUTED, fontSize: '10px', marginTop: '2px' }}>{s.email}</div>}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, color: MUTED, fontSize: '11px' }}>{s.roll_number || s.user_id}</td>
-                                                <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, color: MUTED, fontSize: '11px' }}>{s.college || '—'}</td>
-                                                <td style={{ padding: '12px 16px' }}><StatusBadge status={s.progress.status} /></td>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    {s.progress.ats_score !== null ? (
-                                                        <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '20px', color: s.progress.ats_score >= 75 ? GREEN : s.progress.ats_score >= 50 ? ORANGE : RED }}>
-                                                            {s.progress.ats_score}
-                                                        </span>
-                                                    ) : <span style={{ color: PANEL }}>—</span>}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '13px', color: s.progress.tailored_count > 0 ? GREEN : MUTED, fontWeight: 700 }}>
-                                                    {s.progress.tailored_count}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', color: MUTED, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {s.progress.resume_filename || '—'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                            {/* Action Row */}
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
+                                {/* Add Students */}
+                                <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px', flex: '1 1 400px' }}>
+                                    <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
+                                        Add Students
+                                    </h3>
+                                    <textarea
+                                        value={bulkStudentText}
+                                        onChange={e => setBulkStudentText(e.target.value)}
+                                        placeholder={"One per line: Name, Email, StudentID\ne.g.\nJohn Doe, john@college.edu, student_001"}
+                                        rows={4}
+                                        style={{ ...inputStyle, width: '100%', resize: 'vertical', boxSizing: 'border-box' }}
+                                    />
+                                    <button
+                                        onClick={handleAddStudents}
+                                        disabled={addingStudents || !bulkStudentText.trim()}
+                                        style={{ ...btnPrimary, marginTop: '8px', background: GREEN, opacity: addingStudents || !bulkStudentText.trim() ? 0.4 : 1 }}
+                                    >
+                                        {addingStudents ? 'Adding...' : 'Add Students'}
+                                    </button>
+                                </div>
 
-                        {/* Leaderboard */}
-                        {activeTab === 'leaderboard' && (
-                            <div style={{ border: `2px solid ${INK}`, borderTop: 'none', background: CANVAS }}>
-                                {leaderboard.length === 0 ? (
-                                    <div style={{ padding: '60px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '12px', color: MUTED, textTransform: 'uppercase' }}>
-                                        No scored students yet
+                                {/* Bulk Upload */}
+                                <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px', flex: '1 1 400px' }}>
+                                    <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
+                                        Bulk Upload
+                                    </h3>
+                                    <div
+                                        onClick={() => !uploading && fileInputRef.current?.click()}
+                                        onDragOver={e => e.preventDefault()}
+                                        onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length > 0) handleBulkUpload(e.dataTransfer.files); }}
+                                        style={{
+                                            border: `2px dashed ${INK}`,
+                                            padding: '32px 20px',
+                                            textAlign: 'center',
+                                            cursor: uploading ? 'wait' : 'pointer',
+                                            background: PANEL,
+                                        }}
+                                    >
+                                        <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.csv" style={{ display: 'none' }}
+                                            onChange={e => e.target.files && handleBulkUpload(e.target.files)} />
+                                        <div style={{ fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', color: INK }}>
+                                            {uploading ? 'Uploading...' : 'Drop Resumes or responses.csv'}
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div>
-                                        {leaderboard.map((entry, i) => (
-                                            <div
-                                                key={entry.user_id}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '16px',
-                                                    padding: '14px 24px',
-                                                    borderBottom: i < leaderboard.length - 1 ? `1px solid ${PANEL}` : 'none',
-                                                    background: entry.rank <= 3 ? (entry.rank === 1 ? '#fefce8' : entry.rank === 2 ? PANEL : '#fff7ed') : CANVAS,
-                                                }}
-                                            >
-                                                <RankBadge rank={entry.rank} />
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontFamily: FONT_SANS, fontWeight: 700, color: INK, fontSize: '14px' }}>{entry.name}</div>
+                                    {uploadResults && (
+                                        <div style={{ marginTop: '10px', fontFamily: FONT_MONO, fontSize: '11px' }}>
+                                            {uploadResults.slice(0, 3).map((r, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: r.status === 'uploaded' ? GREEN : RED }}>
+                                                    <span>{r.filename}</span>
+                                                    <span>{r.status === 'uploaded' ? '✓' : '✗'}</span>
                                                 </div>
-                                                <StatusBadge status={entry.status} />
-                                                <div style={{ textAlign: 'right', minWidth: '50px' }}>
-                                                    {entry.ats_score !== null ? (
-                                                        <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '24px', color: entry.ats_score >= 75 ? GREEN : entry.ats_score >= 50 ? ORANGE : RED }}>
-                                                            {entry.ats_score}
-                                                        </span>
-                                                    ) : <span style={{ color: PANEL, fontFamily: FONT_MONO }}>—</span>}
-                                                </div>
-                                                {entry.tailored_count > 0 && (
-                                                    <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, textTransform: 'uppercase', minWidth: '70px', textAlign: 'right' }}>
-                                                        {entry.tailored_count} tailored
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                            ))}
+                                            {uploadResults.length > 3 && <div style={{ color: MUTED }}>...and {uploadResults.length - 3} more</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Tabs */}
+                            <div style={{ display: 'flex', border: `2px solid ${INK}`, background: PANEL, marginBottom: '-2px' }}>
+                                {['students', 'leaderboard'].map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab as any)}
+                                        style={{
+                                            padding: '12px 24px',
+                                            fontFamily: FONT_MONO,
+                                            fontSize: '12px',
+                                            fontWeight: 800,
+                                            textTransform: 'uppercase',
+                                            background: activeTab === tab ? CANVAS : 'transparent',
+                                            color: activeTab === tab ? INK : MUTED,
+                                            border: 'none',
+                                            borderRight: `2px solid ${INK}`,
+                                            cursor: 'pointer',
+                                            outline: 'none',
+                                        }}
+                                    >
+                                        {tab}
+                                    </button>
+                                ))}
+                                {activeTab === 'students' && (
+                                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                                        <input
+                                            type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                            placeholder="Search..."
+                                            style={{ ...inputStyle, fontSize: '11px', padding: '4px 10px', width: '180px', borderBottom: 'none' }}
+                                        />
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </>
-                )}
-            <style>{`
+
+                            {/* Students Table */}
+                            {activeTab === 'students' && (
+                                <div style={{ border: `2px solid ${INK}`, borderTop: 'none', background: CANVAS }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr>
+                                                <SortTh label="Name" k="name" />
+                                                <th style={thStyle}>Roll & College</th>
+                                                <SortTh label="Status" k="status" />
+                                                <SortTh label="ATS Score" k="ats_score" />
+                                                <SortTh label="Tailored" k="tailored" />
+                                                <th style={thStyle}>Resume</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedStudents.length === 0 ? (
+                                                <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '12px', color: MUTED, textTransform: 'uppercase' }}>
+                                                    No students yet
+                                                </td></tr>
+                                            ) : sortedStudents.map(s => (
+                                                <tr key={s.user_id} style={{ borderBottom: `1px solid ${PANEL}` }}>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        <div style={{ fontFamily: FONT_SANS, fontWeight: 700, color: INK, fontSize: '14px' }}>{s.name}</div>
+                                                        {s.email && <div style={{ fontFamily: FONT_MONO, color: MUTED, fontSize: '10px', marginTop: '2px' }}>{s.email}</div>}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, color: MUTED, fontSize: '10px' }}>
+                                                        <div>{s.roll_number || 'No ID'}</div>
+                                                        <div style={{ color: INK, fontWeight: 700 }}>{s.college || '—'}</div>
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <StatusBadge status={s.progress.status} />
+                                                            {(s.progress.status === 'upload_failed' || s.progress.status === 'processing') && (
+                                                                <button
+                                                                    onClick={() => handleRetry(s.user_id)}
+                                                                    disabled={retrying[s.user_id]}
+                                                                    title="Force retry processing"
+                                                                    style={{
+                                                                        padding: '2px',
+                                                                        background: PANEL,
+                                                                        border: `1px solid ${INK}`,
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        opacity: retrying[s.user_id] ? 0.3 : 1
+                                                                    }}
+                                                                >
+                                                                    <RefreshCw size={12} style={{ animation: retrying[s.user_id] ? 'spin 1.5s linear infinite' : 'none' }} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        {s.progress.error && (
+                                                            <div style={{ fontFamily: FONT_SANS, fontSize: '9px', color: RED, marginTop: '4px', maxWidth: '150px' }}>
+                                                                {s.progress.error}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        {s.progress.ats_score !== null ? (
+                                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '20px', color: s.progress.ats_score >= 75 ? GREEN : s.progress.ats_score >= 50 ? ORANGE : RED }}>
+                                                                {s.progress.ats_score}
+                                                            </span>
+                                                        ) : <span style={{ color: PANEL }}>—</span>}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '13px', color: s.progress.tailored_count > 0 ? GREEN : MUTED, fontWeight: 700 }}>
+                                                        {s.progress.tailored_count}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                                                        {s.progress.resume_filename || '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Leaderboard */}
+                            {activeTab === 'leaderboard' && (
+                                <div style={{ border: `2px solid ${INK}`, borderTop: 'none', background: CANVAS }}>
+                                    {leaderboard.length === 0 ? (
+                                        <div style={{ padding: '60px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '12px', color: MUTED, textTransform: 'uppercase' }}>
+                                            No scored students yet
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {leaderboard.map((entry, i) => (
+                                                <div
+                                                    key={entry.user_id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '16px',
+                                                        padding: '14px 24px',
+                                                        borderBottom: i < leaderboard.length - 1 ? `1px solid ${PANEL}` : 'none',
+                                                        background: entry.rank <= 3 ? (entry.rank === 1 ? '#fefce8' : entry.rank === 2 ? PANEL : '#fff7ed') : CANVAS,
+                                                    }}
+                                                >
+                                                    <RankBadge rank={entry.rank} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontFamily: FONT_SANS, fontWeight: 700, color: INK, fontSize: '14px' }}>{entry.name}</div>
+                                                    </div>
+                                                    <StatusBadge status={entry.status} />
+                                                    <div style={{ textAlign: 'right', minWidth: '50px' }}>
+                                                        {entry.ats_score !== null ? (
+                                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '24px', color: entry.ats_score >= 75 ? GREEN : entry.ats_score >= 50 ? ORANGE : RED }}>
+                                                                {entry.ats_score}
+                                                            </span>
+                                                        ) : <span style={{ color: PANEL, fontFamily: FONT_MONO }}>—</span>}
+                                                    </div>
+                                                    {entry.tailored_count > 0 && (
+                                                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, textTransform: 'uppercase', minWidth: '70px', textAlign: 'right' }}>
+                                                            {entry.tailored_count} tailored
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <style jsx>{`
                 @keyframes pulse {
                     0% { opacity: 1; }
                     50% { opacity: 0.4; }
                     100% { opacity: 1; }
                 }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
             `}</style>
         </div>
-      </div>
     );
 }

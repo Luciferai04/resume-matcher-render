@@ -565,6 +565,7 @@ class Database:
                     "tailored_count": int(tailored_count),
                     "job_count": int(job_count),
                     "resume_uploaded_at": master_obj.created_at.isoformat() if master_obj else None,
+                    "error": master_obj.error_message if master_obj else None,
                 }
                 results.append(user_dict)
             return results

@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from sqlalchemy import select
 from app.database import db
 from app.services.parser import parse_document, parse_resume_to_json
 from app.services.downloader import download_file
@@ -586,10 +587,27 @@ async def bulk_upload_resumes(
             "message": f"Bulk upload completed: {uploaded} successful, {failed} failed",
             "results": results,
         }
-    except Exception as e:
-        logger.exception("Critial error in bulk_upload_resumes")
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
+@router.post("/students/{user_id}/retry")
+async def retry_student_processing(user_id: str, job_id: Optional[str] = None):
+    """Manually trigger background processing and scoring for a student's master resume."""
+    with db.get_session() as session:
+        from app.models import Resume
+        stmt = select(Resume).where(Resume.user_id == user_id, Resume.is_master == True)
+        resume = session.exec(stmt).first()
+        if not resume:
+            raise HTTPException(status_code=404, detail="Master resume not found for this student")
+        
+        # Reset status to processing
+        resume.processing_status = "processing"
+        resume.error_message = None
+        session.add(resume)
+        session.commit()
+        
+        # Dispatch task
+        from app.worker import process_and_score_resume_task
+        process_and_score_resume_task.delay(resume.resume_id, job_id=job_id)
+        
+        return {"status": "success", "message": "Processing task dispatched"}
 
 # ─── Stats & Leaderboard ──────────────────────────────────────────────────────
 
