@@ -469,8 +469,9 @@ def _appears_truncated(data: dict) -> bool:
     is_ats = "totalScore" in data or "breakdown" in data
     is_swot = any(k in data for k in ["strengths", "weaknesses", "opportunities", "threats"])
     is_enrichment = "items_to_enrich" in data or "questions" in data
+    is_test = "status" in data
     
-    if is_ats or is_swot or is_enrichment:
+    if is_ats or is_swot or is_enrichment or is_test:
         return False
 
     # Check for missing critical sections ONLY if it looks like a resume
