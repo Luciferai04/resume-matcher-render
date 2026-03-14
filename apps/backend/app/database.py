@@ -106,6 +106,9 @@ class Database:
         migrations = [
             # table, column, type
             ("job", "job_keywords", "JSON"),
+            ("job", "preview_hash", "VARCHAR"),
+            ("job", "preview_prompt_id", "VARCHAR"),
+            ("job", "preview_hashes", "JSON"),
             ("user", "cohort_id", "VARCHAR"),
             ("user", "college", "VARCHAR"),
             ("user", "roll_number", "VARCHAR"),
