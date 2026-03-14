@@ -286,7 +286,7 @@ def _supports_temperature(provider: str, model: str) -> bool:
     """
     _ = provider
     model_lower = model.lower()
-    if "gpt-5" in model_lower or "gemini-3" in model_lower:
+    if "gpt-5" in model_lower or "gemini-3" in model_lower or "gemini-1.5" in model_lower or "gemini-flash-lite" in model_lower:
         return False
     return True
 
