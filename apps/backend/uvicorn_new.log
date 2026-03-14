@@ -221,3 +221,87 @@ OSError: [Errno 9] Bad file descriptor
 
 Current thread 0x00000002006f7100 (most recent call first):
   <no Python frame>
+WARNING:  StatReload detected changes in 'app/models.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/database.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/worker.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/main.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/main.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/health.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>

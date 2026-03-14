@@ -40,6 +40,7 @@ async def health_check() -> HealthResponse:
 
     return HealthResponse(
         status="healthy" if llm_status.get("healthy") and redis_healthy and worker_status["healthy"] else "degraded",
+        debug_id="fix_attr_v2",
         llm=llm_status,
         redis={"healthy": redis_healthy},
         worker=worker_status,
