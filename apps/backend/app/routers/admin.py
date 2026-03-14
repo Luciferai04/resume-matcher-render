@@ -208,15 +208,9 @@ async def get_failed_resumes():
         with db.get_session() as session:
             statement = select(Resume).where(Resume.processing_status == "failed").order_by(Resume.created_at.desc()).limit(20)
             results = session.exec(statement).all()
-            return [
-                {
-                    "resume_id": obj.resume_id if (obj := _unwrap_row(r)) else None,
-                    "filename": obj.filename if obj else None,
-                    "error": obj.error_message if obj else None,
-                    "created_at": obj.created_at.isoformat() if obj and obj.created_at else None
-                }
-                for r in results
             ]
+    except Exception as e:
+        import traceback
         return {
             "status": "error",
             "message": str(e),
