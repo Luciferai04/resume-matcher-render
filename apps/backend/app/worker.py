@@ -62,7 +62,10 @@ def process_resume_task(resume_id: str):
         logger.info(f"Successfully processed resume {resume_id}")
     except Exception as e:
         logger.error(f"Failed to process resume {resume_id}: {e}")
-        db.update_resume(resume_id, {"processing_status": "failed"})
+        db.update_resume(resume_id, {
+            "processing_status": "failed",
+            "error_message": str(e)
+        })
 
 @celery_app.task(name="process_and_score_resume_task")
 def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
@@ -102,7 +105,10 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
         logger.info(f"Successfully processed (and scored) resume {resume_id} with status {updates.get('processing_status')} score {updates.get('ats_score')}")
     except Exception as e:
         logger.error(f"Failed to process/score resume {resume_id}: {e}", exc_info=True)
-        db.update_resume(resume_id, {"processing_status": "failed"})
+        db.update_resume(resume_id, {
+            "processing_status": "failed",
+            "error_message": str(e)
+        })
 
 @celery_app.task(name="generate_tailored_resume_task")
 def generate_tailored_resume_task(resume_id: str, job_id: str, prompt_id: str):
@@ -157,4 +163,11 @@ def capture_pdf_snapshot_task(resume_id: str, url: str, job_id: Optional[str] = 
 
     except Exception as e:
         logger.error(f"Failed to capture PDF for resume {resume_id}: {e}", exc_info=True)
-        db.update_resume(resume_id, {"processing_status": "failed"}, user_id=user_id)
+        db.update_resume(
+            resume_id, 
+            {
+                "processing_status": "failed",
+                "error_message": str(e)
+            }, 
+            user_id=user_id
+        )

@@ -118,6 +118,7 @@ class Database:
             ("resume", "ats_score", "INTEGER"),
             ("resume", "ats_breakdown", "JSON"),
             ("resume", "processing_status", "VARCHAR"),
+            ("resume", "error_message", "TEXT"),
         ]
         
         for table, column, col_type in migrations:

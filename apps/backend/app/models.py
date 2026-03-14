@@ -41,6 +41,7 @@ class Resume(SQLModel, table=True):
     title: Optional[str] = None
     ats_score: Optional[int] = Field(default=None, index=True)
     ats_breakdown: Optional[dict[str, Any]] = Field(default=None, sa_type=JSON)
+    error_message: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
