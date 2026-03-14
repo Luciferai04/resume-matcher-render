@@ -73,6 +73,20 @@ class LeaderboardEntry(BaseModel):
 
 # ─── Diagnostic Endpoints ─────────────────────────────────────────────────────
 
+@router.get("/diag/schema")
+async def check_schema():
+    """Check database schema for Resume table."""
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            # Query columns for Resume table
+            # For Postgres:
+            result = conn.execute(text("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'resume'"))
+            columns = [{"column": r[0], "type": r[1]} for r in result]
+            return {"table": "resume", "columns": columns}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @router.get("/diag/failures")
 async def get_failed_resumes():
     """Diagnostic route to check failed resumes and error messages."""
