@@ -40,6 +40,7 @@ OPENROUTER_JSON_CAPABLE_MODELS = {
     "google/gemini-1.5-flash",
     "google/gemini-2.0-flash",
     "google/gemini-3-flash-preview",
+    "google/gemini-flash-lite-latest",
     # DeepSeek models
     "deepseek/deepseek-chat",
     "deepseek/deepseek-reasoner",
@@ -469,9 +470,10 @@ def _appears_truncated(data: dict) -> bool:
     is_ats = "totalScore" in data or "breakdown" in data
     is_swot = any(k in data for k in ["strengths", "weaknesses", "opportunities", "threats"])
     is_enrichment = "items_to_enrich" in data or "questions" in data
+    is_keywords = "keywords" in data or "required_skills" in data
     is_test = "status" in data
     
-    if is_ats or is_swot or is_enrichment or is_test:
+    if is_ats or is_swot or is_enrichment or is_keywords or is_test:
         return False
 
     # Check for missing critical sections ONLY if it looks like a resume

@@ -36,7 +36,9 @@ async def test():
             db.update_job(jid, {"job_keywords": keywords})
 
         ats_result = await calculate_ats_score(
+            resume_id=rid,
             resume_data=processed_data,
+            job_id=jid,
             job_description=job["content"],
             job_keywords=keywords or {},
         )

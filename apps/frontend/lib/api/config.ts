@@ -131,7 +131,7 @@ export const PROVIDER_INFO: Record<
     defaultModel: 'deepseek/deepseek-chat',
     requiresKey: true,
   },
-  gemini: { name: 'Google Gemini', defaultModel: 'gemini-3-flash-preview', requiresKey: true },
+  gemini: { name: 'Google Gemini', defaultModel: 'gemini-flash-lite-latest', requiresKey: true },
   deepseek: { name: 'DeepSeek', defaultModel: 'deepseek-chat', requiresKey: true },
   ollama: { name: 'Ollama (Local)', defaultModel: 'gemma3:4b', requiresKey: false },
 };
