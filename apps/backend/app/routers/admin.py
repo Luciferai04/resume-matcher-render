@@ -159,6 +159,43 @@ async def test_llm_connectivity():
             "traceback": traceback.format_exc()
         }
 
+
+@router.get("/diag/config-fix")
+async def fix_production_config():
+    """Correct persistent invalid configuration in production."""
+    try:
+        from app.config import settings
+        import json
+        import os
+        
+        config_path = settings.config_path
+        if not config_path.exists():
+            return {"status": "skipped", "message": "No config.json found to fix."}
+            
+        config_info = json.loads(config_path.read_text())
+        old_model = config_info.get("model")
+        
+        # known broken value
+        BROKEN_MODEL = "gemini-3.1-flash-lite-preview"
+        CORRECT_MODEL = "gemini-flash-latest"
+        
+        if old_model == BROKEN_MODEL:
+            config_info["model"] = CORRECT_MODEL
+            config_path.write_text(json.dumps(config_info, indent=2))
+            return {
+                "status": "success", 
+                "message": f"Updated model from {old_model} to {CORRECT_MODEL}",
+                "new_config": config_info
+            }
+            
+        return {
+            "status": "not_needed", 
+            "message": f"Current model '{old_model}' does not need auto-fixing.",
+            "current_config": config_info
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @router.get("/diag/failures")
 async def get_failed_resumes():
     """Diagnostic route to check failed resumes and error messages."""
