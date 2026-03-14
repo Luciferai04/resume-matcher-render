@@ -769,5 +769,6 @@ async def get_executive_report(cohort_id: str):
         "funnel": funnel,
         "score_growth": score_growth,
         "top_performers": top_performers,
+        "all_results": scored_students,
         "skill_gaps": skill_gaps,
     }

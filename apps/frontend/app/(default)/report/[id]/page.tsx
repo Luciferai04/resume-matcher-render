@@ -28,6 +28,7 @@ interface ReportData {
     funnel: FunnelStage[];
     score_growth: ScoreGrowth;
     top_performers: TopPerformer[];
+    all_results: TopPerformer[];
     skill_gaps: SkillGap[];
 }
 
@@ -91,7 +92,7 @@ export default function ReportPage() {
             } catch (e: any) { setError(e.message); }
             finally { setLoading(false); }
         })();
-    }, [params.id]);
+    }, [id]);
 
     if (loading) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: CANVAS, fontFamily: FONT_MONO, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: MUTED }}>
@@ -105,7 +106,7 @@ export default function ReportPage() {
         </div>
     );
 
-    const { cohort, summary, funnel, score_growth, top_performers, skill_gaps } = report;
+    const { cohort, summary, funnel, score_growth, top_performers, all_results, skill_gaps } = report;
 
     return (
         <div style={{ minHeight: '100vh', background: CANVAS, fontFamily: FONT_SANS }}>
@@ -290,6 +291,44 @@ export default function ReportPage() {
                         </SwissCard>
                     </section>
                 )}
+
+                {/* Full Results Table */}
+                <section style={{ marginBottom: '48px', breakBefore: 'page' }}>
+                    <SectionTitle>// Full Student Results</SectionTitle>
+                    <SwissCard style={{ overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT_SANS }}>
+                            <thead>
+                                <tr style={{ background: PANEL, borderBottom: `2px solid ${INK}` }}>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase' }}>Rank</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase' }}>Name</th>
+                                    <th style={{ padding: '12px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase' }}>Score</th>
+                                    <th style={{ padding: '12px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase' }}>Tailored</th>
+                                    <th style={{ padding: '12px', textAlign: 'right', fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {all_results.map((p, i) => (
+                                    <tr key={p.user_id} style={{ borderBottom: `1px solid ${PANEL}` }}>
+                                        <td style={{ padding: '12px', fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700 }}>{i + 1}</td>
+                                        <td style={{ padding: '12px', fontSize: '13px', fontWeight: 600 }}>{p.name}</td>
+                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '2px 8px', border: `1px solid ${INK}`, fontWeight: 800, fontFamily: FONT_MONO,
+                                                color: p.ats_score >= 90 ? GREEN : p.ats_score >= 75 ? BLUE : p.ats_score >= 50 ? ORANGE : RED,
+                                            }}>
+                                                {p.ats_score}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'center', fontFamily: FONT_MONO, fontSize: '12px' }}>{p.tailored_count}</td>
+                                        <td style={{ padding: '12px', textAlign: 'right', fontFamily: FONT_MONO, fontSize: '9px', textTransform: 'uppercase', color: MUTED }}>
+                                            {p.status.replace('_', ' ')}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </SwissCard>
+                </section>
 
                 {/* Footer */}
                 <div style={{
