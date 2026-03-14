@@ -5,18 +5,12 @@ import logging
 from typing import Any, Optional
 
 from app.llm import complete_json
-from app.prompts.templates import ATS_SCORE_PROMPT, get_language_name
+from app.prompts.templates import ATS_SCORE_PROMPT, get_language_name, PARSE_AND_SCORE_PROMPT, RESUME_SCHEMA_EXAMPLE
 from app.services.refiner import calculate_keyword_match
 from app.services.improver import extract_job_keywords
 from app.database import db
 
 logger = logging.getLogger(__name__)
-
-import redis
-from app.config import settings
-
-# Initialize Redis client
-redis_client = redis.from_url(settings.redis_url)
 
 async def calculate_ats_score(
     resume_id: str,
@@ -26,28 +20,9 @@ async def calculate_ats_score(
     job_keywords: dict[str, Any],
     language: str = "en",
 ) -> dict[str, Any]:
-    """Calculate ATS score for a resume against a job description, with Redis caching."""
-    # Try to fetch from cache first
-    cache_key = f"ats_score:{resume_id}:{job_id}"
-    try:
-        cached_result = redis_client.get(cache_key)
-        if cached_result:
-            logger.info(f"Returning cached ATS score for resume {resume_id} and job {job_id}")
-            return json.loads(cached_result)
-    except Exception as e:
-        logger.warning(f"Redis cache fetch failed: {e}")
-
+    """Calculate ATS score for a resume against a job description."""
     language_name = get_language_name(language)
     
-    # Calculate keyword match percentage locally to provide as a hint to the LLM
-    try:
-        kw_match_percentage = calculate_keyword_match(resume_data, job_keywords)
-        kw_hint = f"\n\nReference Keyword Match Score (calculated locally): {kw_match_percentage:.1f}%\n"
-        logger.info(f"Local keyword match calculated: {kw_match_percentage:.1f}%")
-    except Exception as e:
-        logger.warning(f"Failed to calculate local keyword match: {e}")
-        kw_hint = ""
-
     prompt = ATS_SCORE_PROMPT.format(
         output_language=language_name,
         job_description=job_description,
@@ -55,22 +30,58 @@ async def calculate_ats_score(
         resume_data=json.dumps(resume_data, indent=2),
     )
     
-    # Append the hint if we have it
-    if kw_hint:
-        prompt += kw_hint
+    return await complete_json(prompt=prompt)
 
-    result = await complete_json(prompt=prompt)
+async def parse_and_score_integrated(
+    resume_text: str,
+    job_id: str,
+    job_content: str,
+    job_keywords: dict[str, Any],
+    language: str = "en"
+) -> dict[str, Any]:
+    """Parse resume and calculate ATS score in a single LLM call."""
+    language_name = get_language_name(language)
     
-    # Cache result if successful
-    if result:
-        try:
-            # Cache for 24 hours
-            redis_client.setex(cache_key, 86400, json.dumps(result))
-            logger.info(f"Cached ATS score for resume {resume_id} and job {job_id}")
-        except Exception as e:
-            logger.warning(f"Redis cache store failed: {e}")
-            
+    prompt = PARSE_AND_SCORE_PROMPT.format(
+        output_language=language_name,
+        job_description=job_content,
+        job_keywords=json.dumps(job_keywords, indent=2),
+        resume_text=resume_text,
+        resume_schema=RESUME_SCHEMA_EXAMPLE
+    )
+    
+    result = await complete_json(prompt=prompt)
+    if not result or "parsed_resume" not in result:
+        logger.error("Integrated parse/score failed: missing 'parsed_resume' in response")
+        return {}
+        
     return result
+
+def extract_score(ats_result: dict[str, Any]) -> int:
+    """Robustly extract an integer score from LLM result."""
+    score_keys = [
+        "totalScore", "total_score", "ats_score", "atsScore", 
+        "overall_score", "score", "match_percentage", "matchScore"
+    ]
+    
+    raw_score = None
+    for key in score_keys:
+        if key in ats_result:
+            raw_score = ats_result[key]
+            break
+    
+    if raw_score is None:
+        return 0
+        
+    try:
+        if isinstance(raw_score, (int, float)):
+            return int(raw_score)
+        else:
+            score_str = str(raw_score).split('/')[0].split(':')[0].rstrip('%').strip()
+            score_digits = "".join(filter(str.isdigit, score_str))
+            return int(score_digits) if score_digits else 0
+    except (ValueError, TypeError):
+        return 0
 
 async def score_and_update_resume(
     resume_id: str,
@@ -89,7 +100,6 @@ async def score_and_update_resume(
     if not keywords:
         logger.info(f"Extracting keywords for job {job_id}")
         keywords = await extract_job_keywords(job["content"])
-        # Update job with extracted keywords
         db.update_job(job_id, {"job_keywords": keywords})
 
     ats_result = await calculate_ats_score(
@@ -101,36 +111,8 @@ async def score_and_update_resume(
     )
     
     if ats_result:
-        # Map various possible score keys from LLM (robust mapping)
-        score_keys = [
-            "totalScore", "total_score", "ats_score", "atsScore", 
-            "overall_score", "score", "match_percentage", "matchScore"
-        ]
-        
-        raw_score = None
-        for key in score_keys:
-            if key in ats_result:
-                raw_score = ats_result[key]
-                break
-        
-        # Sanitize score to integer
-        score = 0
-        if raw_score is not None:
-            try:
-                if isinstance(raw_score, (int, float)):
-                    score = int(raw_score)
-                else:
-                    # Handle strings like "85%", "85/100", etc.
-                    score_str = str(raw_score).split('/')[0].split(':')[0].rstrip('%').strip()
-                    # Extract digits only
-                    score_digits = "".join(filter(str.isdigit, score_str))
-                    if score_digits:
-                        score = int(score_digits)
-            except (ValueError, TypeError):
-                logger.warning(f"Failed to parse ATS score '{raw_score}' to integer")
-        
-        # Robust mapping for breakdown
-        breakdown = ats_result.get("breakdown") or ats_result.get("ats_breakdown") or ats_result.get("breakdown_scores") or {}
+        score = extract_score(ats_result)
+        breakdown = ats_result.get("breakdown") or ats_result.get("ats_breakdown") or {}
         
         updates = {
             "ats_score": score,

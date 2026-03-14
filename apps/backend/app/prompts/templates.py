@@ -414,3 +414,44 @@ Output ONLY a JSON object with this format:
   "opportunities": ["...", "...", "..."],
   "threats": ["...", "...", "..."]
 }}"""
+PARSE_AND_SCORE_PROMPT = """Analyze this resume and provide BOTH a structured JSON representation AND an ATS score against the job description.
+
+IMPORTANT: Generate all analysis in {output_language}.
+
+---
+JOB DESCRIPTION:
+{job_description}
+
+---
+REQUIRED KEYWORDS:
+{job_keywords}
+
+---
+RESUME TEXT:
+{resume_text}
+
+---
+RULES FOR PARSING:
+- Map content to standard sections. Use customSections for others.
+- Normalize dates to "YYYY - YYYY".
+- Output should be detailed and accurate.
+
+RULES FOR SCORING (0-100 total):
+- Keyword Match (40 pts), Structural (20 pts), Impact (30 pts), Formatting (10 pts).
+- Provide 3-5 high-impact suggestions.
+
+---
+OUTPUT FORMAT (JSON ONLY):
+{{
+  "parsed_resume": {resume_schema},
+  "ats_analysis": {{
+    "totalScore": 85,
+    "breakdown": {{
+        "keywordMatch": 35,
+        "structuralCompleteness": 20,
+        "quantifiableImpact": 20,
+        "formatting": 10
+    }},
+    "suggestions": ["suggestion 1", "suggestion 2"]
+  }}
+}}"""
