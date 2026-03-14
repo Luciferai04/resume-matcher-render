@@ -249,6 +249,42 @@ export default function AdminPage() {
         finally { setCreating(false); }
     };
 
+    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedCohort) return;
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Find job associated with this cohort
+        // In the admin router, jobs are created with user_id = `cohort_${cohort_id}`
+        // NOTE: 'jobs' and 'fetchCohortStudents' are not defined in the provided document.
+        // This code assumes their existence in the actual application context.
+        const currentJob = jobs.find(j => j.user_id === `cohort_${selectedCohort}` || j.cohort_id === selectedCohort);
+        if (currentJob?.job_id) {
+            formData.append('job_id', currentJob.job_id);
+            console.log('Attaching job_id to upload:', currentJob.job_id);
+        }
+
+        try {
+            const res = await apiPost(`/admin/cohorts/${selectedCohort}/upload-csv`, formData);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'Upload failed');
+            }
+            alert('CSV upload started. Resumes will appear as they are processed.');
+            fetchCohortStudents(selectedCohort);
+        } catch (err: any) { 
+            console.error('CSV upload error:', err);
+            alert(`Error uploading CSV: ${err.message}`);
+        }
+        finally { 
+            setUploading(false); 
+            // Clear input
+            e.target.value = '';
+        }
+    };
+
     const handleAddStudents = async () => {
         if (!selectedCohort || !bulkStudentText.trim()) return;
         setAddingStudents(true);

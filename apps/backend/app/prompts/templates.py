@@ -344,27 +344,36 @@ Output the title only, nothing else."""
 # Alias for backward compatibility
 RESUME_SCHEMA = RESUME_SCHEMA_EXAMPLE
 
-ATS_SCORE_PROMPT = """Analyze the resume against the job description and provide an ATS (Applicant Tracking System) score.
+ATS_SCORE_PROMPT = """Analyze the resume against the job description and provide a comprehensive ATS (Applicant Tracking System) score.
 
 IMPORTANT: Write in {output_language}.
 
 Job Description:
 {job_description}
 
-Keywords:
+Required Keywords:
 {job_keywords}
 
 Resume (JSON):
 {resume_data}
 
+Scoring Criteria (Total 100 points):
+1. **Keyword Match (40 points)**: 
+   - Direct match of technical skills and tools (25 points)
+   - Proper usage of industry-specific terminology (15 points)
+2. **Structural Completeness (20 points)**:
+   - Presence of Contact Info, Summary/Objective, Experience, Education, and Skills (15 points)
+   - Presence of LinkedIn and GitHub/Portfolio links (5 points)
+3. **Quantifiable Impact (30 points)**:
+   - Use of metrics, percentages, or dollar amounts to show impact (20 points)
+   - Use of strong action verbs (10 points)
+4. **Formatting & Readability (10 points)**:
+   - Consistent formatting and professional tone (10 points)
+
 Rules:
-1. Provide a total score between 0 and 100.
-2. Breakdown the score into:
-   - "keywordMatch": How many required keywords appear in the resume (0-40).
-   - "structuralCompleteness": Does it have all standard sections (0-20).
-   - "quantifiableImpact": Are there numbers and action verbs (0-30).
-   - "formatting": General readability and structure (0-10).
-3. Provide 3-5 specific suggestions for improvement to increase the score.
+- Be objective but helpful.
+- Provide a total score between 0 and 100.
+- Provide 3-5 high-impact, actionable suggestions to improve the score.
 
 Output ONLY a JSON object with this format:
 {{
@@ -376,8 +385,9 @@ Output ONLY a JSON object with this format:
     "formatting": 10
   }},
   "suggestions": [
-    "Add more metrics to your work experience",
-    "Include missing keyword 'Kubernetes'"
+    "Quantify your impact in the 'AI Engineer' role by adding specific metrics (e.g., 'reduced latency by 20%')",
+    "Add your LinkedIn profile link to the contact information",
+    "Include missing keywords: 'Kubernetes', 'CI/CD'"
   ]
 }}"""
 

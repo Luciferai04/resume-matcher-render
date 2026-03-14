@@ -92,40 +92,11 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
 
         # 2. Optionally score against job
         if job_id and job_id.strip():
-            job = db.get_job(job_id)
-            if job:
-                logger.info(f"Calculating ATS score for resume {resume_id} against job {job_id}")
-                # Get keywords (extract if missing)
-                keywords = job.get("job_keywords")
-                if not keywords:
-                    logger.info(f"Extracting keywords for job {job_id}")
-                    keywords = run_async(extract_job_keywords(job["content"]))
-                    # Update job with extracted keywords
-                    db.update_job(job_id, {"job_keywords": keywords})
-
-                ats_result = run_async(calculate_ats_score(
-                    resume_data=processed_data,
-                    job_description=job["content"],
-                    job_keywords=keywords or {},
-                ))
-                if ats_result:
-                    logger.info(f"ATS Result for {resume_id}: {ats_result}")
-                    # Map various possible score keys from LLM
-                    score = (
-                        ats_result.get("totalScore") or 
-                        ats_result.get("total_score") or 
-                        ats_result.get("overall_score") or 
-                        ats_result.get("score")
-                    )
-                    updates["ats_score"] = score
-                    updates["ats_breakdown"] = ats_result.get("breakdown")
-                else:
-                    logger.warning(f"ATS Scoring returned no result for resume {resume_id}")
-            else:
-                logger.warning(f"Job {job_id} not found for scoring resume {resume_id}")
+            logger.info(f"Calculating ATS score for resume {resume_id} against job {job_id}")
+            run_async(score_and_update_resume(resume_id, processed_data, job_id))
 
         db.update_resume(resume_id, updates)
-        logger.info(f"Successfully processed (and scored) resume {resume_id} with status {updates.get('processing_status')}")
+        logger.info(f"Successfully processed (and scored) resume {resume_id} with status {updates.get('processing_status')} score {updates.get('ats_score')}")
     except Exception as e:
         logger.error(f"Failed to process/score resume {resume_id}: {e}", exc_info=True)
         db.update_resume(resume_id, {"processing_status": "failed"})

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.database import db
 from app.services.parser import parse_document, parse_resume_to_json
 from app.services.downloader import download_file
+from app.services.ats_scorer import score_and_update_resume
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +286,10 @@ async def bulk_upload_resumes(
                         "processed_data": processed_data,
                         "processing_status": "ready",
                     }, user_id=user_id)
+                    
+                    # Also try to score if job_id is provided
+                    if job_id:
+                        await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
                 
                 results.append({
                     "filename": filename,
@@ -369,8 +374,12 @@ async def bulk_upload_resumes(
                         "processed_data": processed_data,
                         "processing_status": "ready",
                     }, user_id=user_id)
-                except Exception as parse_err:
-                    logger.error("Inline processing failed for %s: %s", filename, parse_err)
+                    
+                    # Also try to score if job_id is provided
+                    if job_id:
+                        await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
+                except Exception as inline_err:
+                    logger.error("Inline processing failed for %s: %s", filename, inline_err)
                     db.update_resume(resume["resume_id"], {
                         "processing_status": "failed",
                     }, user_id=user_id)
