@@ -71,6 +71,28 @@ class LeaderboardEntry(BaseModel):
     status: str = "not_started"
 
 
+# ─── Diagnostic Endpoints ─────────────────────────────────────────────────────
+
+@router.get("/diag/failures")
+async def get_failed_resumes():
+    """Diagnostic route to check failed resumes and error messages."""
+    from sqlalchemy import select
+    from app.models import Resume
+    
+    with db.get_session() as session:
+        statement = select(Resume).where(Resume.processing_status == "failed").order_by(Resume.created_at.desc()).limit(20)
+        results = session.exec(statement).all()
+        return [
+            {
+                "resume_id": r.resume_id,
+                "filename": r.filename,
+                "error": r.error_message,
+                "created_at": r.created_at.isoformat()
+            }
+            for r in results
+        ]
+
+
 # ─── Cohort Endpoints ──────────────────────────────────────────────────────────
 
 @router.post("/cohorts", response_model=CohortResponse)
