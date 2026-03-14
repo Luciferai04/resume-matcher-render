@@ -703,6 +703,7 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str
+    debug_id: str | None = None
     llm: dict[str, Any]
     redis: dict[str, Any] | None = None
     worker: dict[str, Any] | None = None
