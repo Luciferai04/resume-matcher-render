@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { API_BASE } from '@/lib/api/client';
+import { useParams } from 'next/navigation';
+import { apiFetch, API_BASE } from '@/lib/api/client';
 
 /* ─── Types ───────────────────────────────────────────────────────────── */
 
@@ -73,15 +74,18 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 /* ─── Main Page ───────────────────────────────────────────────────────── */
 
-export default function ReportPage({ params }: { params: { id: string } }) {
+export default function ReportPage() {
+    const params = useParams();
+    const id = params?.id as string;
     const [report, setReport] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!id) return;
         (async () => {
             try {
-                const res = await fetch(`${API_BASE}/admin/cohorts/${params.id}/report`);
+                const res = await apiFetch(`/admin/cohorts/${id}/report`);
                 if (!res.ok) throw new Error(`Failed to load report (${res.status})`);
                 setReport(await res.json());
             } catch (e: any) { setError(e.message); }
