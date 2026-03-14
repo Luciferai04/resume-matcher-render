@@ -111,7 +111,7 @@ RUN useradd -m -u 1000 appuser \
 USER appuser
 
 # Install Playwright Chromium as appuser (so browsers are in correct location)
-RUN python -m playwright install chromium
+# RUN python -m playwright install chromium
 
 # Configure Nginx Reverse Proxy (Non-Root)
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
