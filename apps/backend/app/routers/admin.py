@@ -217,6 +217,50 @@ async def get_failed_resumes():
                 }
                 for r in results
             ]
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+
+@router.get("/diag/rescore/{resume_id}")
+async def diag_rescore_resume(resume_id: str, job_id: Optional[str] = None):
+    """Manually trigger scoring for a resume."""
+    try:
+        from app.models import Resume, Job
+        from app.database import _unwrap_row
+        from app.services.ats_scorer import score_and_update_resume
+        from sqlalchemy import select
+        
+        with db.get_session() as session:
+            resume = session.get(Resume, resume_id)
+            if not resume:
+                return {"status": "error", "message": f"Resume {resume_id} not found"}
+            
+            obj = _unwrap_row(resume)
+            if not obj.processed_data:
+                return {"status": "error", "message": "Resume not processed yet (no processed_data)"}
+            
+            # If no job_id provided, try to find the last created job
+            if not job_id:
+                stmt = select(Job).order_by(Job.created_at.desc()).limit(1)
+                job_res = session.exec(stmt).first()
+                if job_res:
+                    job_obj = _unwrap_row(job_res)
+                    job_id = job_obj.job_id
+                else:
+                    return {"status": "error", "message": "No job_id provided and no jobs found in database"}
+
+            logger.info("Triggering manual re-score for resume %s against job %s", resume_id, job_id)
+            result = await score_and_update_resume(resume_id, obj.processed_data, job_id, user_id=obj.user_id)
+            
+            return {
+                "status": "success",
+                "resume_id": resume_id,
+                "job_id": job_id,
+                "result": result
+            }
     except Exception as e:
         import traceback
         return {
@@ -224,6 +268,8 @@ async def get_failed_resumes():
             "message": str(e),
             "traceback": traceback.format_exc()
         }
+
+
 
 
 # ─── Cohort Endpoints ──────────────────────────────────────────────────────────
