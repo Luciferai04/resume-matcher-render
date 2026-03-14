@@ -8,9 +8,16 @@ import { getUserId } from './auth';
 
 const getApiUrl = () => {
   let url = process.env.NEXT_PUBLIC_API_URL ?? '';
-  // If we're on a secure page, ensure API calls use HTTPS to avoid Mixed Content errors
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http:')) {
-    url = url.replace('http:', 'https:');
+  
+  if (typeof window !== 'undefined') {
+    // If URL is protocol-relative (//example.com), use current protocol
+    if (url.startsWith('//')) {
+      url = window.location.protocol + url;
+    }
+    // If we're on a secure page, force HTTPS for absolute URLs
+    if (window.location.protocol === 'https:' && url.startsWith('http:')) {
+      url = url.replace('http:', 'https:');
+    }
   }
   return url;
 };
