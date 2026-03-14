@@ -94,7 +94,9 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
         if job_id and job_id.strip():
             logger.info(f"Calculating ATS score for resume {resume_id} against job {job_id}")
             from app.services.ats_scorer import score_and_update_resume
-            run_async(score_and_update_resume(resume_id, processed_data, job_id))
+            ats_updates = run_async(score_and_update_resume(resume_id, processed_data, job_id))
+            if ats_updates:
+                updates.update(ats_updates)
 
         db.update_resume(resume_id, updates)
         logger.info(f"Successfully processed (and scored) resume {resume_id} with status {updates.get('processing_status')} score {updates.get('ats_score')}")

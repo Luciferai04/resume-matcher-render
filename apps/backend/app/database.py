@@ -106,6 +106,7 @@ class Database:
         migrations = [
             # table, column, type
             ("job", "job_keywords", "JSON"),
+            ("job", "resume_id", "VARCHAR"),
             ("job", "preview_hash", "VARCHAR"),
             ("job", "preview_prompt_id", "VARCHAR"),
             ("job", "preview_hashes", "JSON"),
@@ -116,6 +117,7 @@ class Database:
             ("cohort", "start_date", "TIMESTAMP"),
             ("resume", "ats_score", "INTEGER"),
             ("resume", "ats_breakdown", "JSON"),
+            ("resume", "processing_status", "VARCHAR"),
         ]
         
         for table, column, col_type in migrations:
