@@ -401,6 +401,8 @@ class ResumeFetchData(BaseModel):
     outreach_message: str | None = None
     parent_id: str | None = None  # For determining if resume is tailored
     title: str | None = None
+    ats_score: int | None = None
+    ats_breakdown: dict[str, Any] | None = None
 
 
 class ResumeFetchResponse(BaseModel):
@@ -421,6 +423,8 @@ class ResumeSummary(BaseModel):
     created_at: str
     updated_at: str
     title: str | None = None
+    ats_score: int | None = None
+    ats_breakdown: dict[str, Any] | None = None
 
 
 class ResumeListResponse(BaseModel):
@@ -700,6 +704,8 @@ class HealthResponse(BaseModel):
 
     status: str
     llm: dict[str, Any]
+    redis: dict[str, Any] | None = None
+    worker: dict[str, Any] | None = None
 
 
 class StatusResponse(BaseModel):

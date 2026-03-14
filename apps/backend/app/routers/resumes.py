@@ -311,7 +311,7 @@ ALLOWED_TYPES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-MAX_FILE_SIZE = 4 * 1024 * 1024  # 4MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 @router.post("/upload", response_model=ResumeUploadResponse)
@@ -444,6 +444,8 @@ async def get_resume(
             outreach_message=resume.get("outreach_message"),
             parent_id=resume.get("parent_id"),
             title=resume.get("title"),
+            ats_score=resume.get("ats_score"),
+            ats_breakdown=resume.get("ats_breakdown"),
         ),
     )
 
@@ -470,6 +472,8 @@ async def list_resumes(
             created_at=resume.get("created_at", ""),
             updated_at=resume.get("updated_at", ""),
             title=resume.get("title"),
+            ats_score=resume.get("ats_score"),
+            ats_breakdown=resume.get("ats_breakdown"),
         )
         for resume in resumes
     ]

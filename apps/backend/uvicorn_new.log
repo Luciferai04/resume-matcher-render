@@ -1,0 +1,223 @@
+INFO:     Will watch for changes in these directories: ['/Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [64273] using StatReload
+2026-03-14 20:28:14,734 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [64357]
+INFO:     Waiting for application startup.
+2026-03-14 20:28:16,106 [INFO] app.main: Starting up Resume Matcher API...
+2026-03-14 20:28:16,106 [INFO] app.main: Data directory verified: /Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data
+2026-03-14 20:28:16,106 [INFO] app.main: Startup complete.
+INFO:     Application startup complete.
+[92m20:28:32 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 20:28:32,007 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 20:28:33,275 [WARNING] root: LLM health check returned empty content
+INFO:     127.0.0.1:55328 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-03-14 20:29:06,496 [INFO] app.routers.admin: Successfully decoded CSV using utf-8-sig
+2026-03-14 20:29:06,497 [INFO] app.routers.admin: Attempting to create 1 students for cohort dab2e943-c02d-427f-bd58-4c672d0b8d15
+2026-03-14 20:29:06,551 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,552 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,552 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,553 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,554 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,555 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,556 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,557 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,559 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,560 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,561 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,562 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,563 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,564 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,565 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,566 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,566 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,566 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,567 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,567 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,568 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,569 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,570 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,571 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 20:29:06,617 [WARNING] app.routers.admin: Celery dispatch failed for test_resume.pdf, trying inline: No module named 'celery'
+2026-03-14 20:29:06,617 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m20:29:06 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 20:29:06,618 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 20:29:10,822 [INFO] app.services.ats_scorer: Local keyword match calculated: 80.0%
+[92m20:29:10 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 20:29:10,822 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+INFO:     127.0.0.1:55340 - "POST /api/v1/admin/cohorts/dab2e943-c02d-427f-bd58-4c672d0b8d15/bulk-upload-resumes?job_id=92305ee4-410a-4563-a2df-3cc811965d6d HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app/database.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-14 20:46:26,746 [INFO] app.main: Shutting down Resume Matcher API...
+2026-03-14 20:46:26,752 [INFO] app.main: PDF renderer closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [64357]
+2026-03-14 20:46:27,375 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [66440]
+INFO:     Waiting for application startup.
+2026-03-14 20:46:30,152 [INFO] app.main: Starting up Resume Matcher API...
+2026-03-14 20:46:30,152 [INFO] app.main: Data directory verified: /Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data
+2026-03-14 20:46:30,152 [INFO] app.main: Startup complete.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/database.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-14 20:47:28,657 [INFO] app.main: Shutting down Resume Matcher API...
+2026-03-14 20:47:28,658 [INFO] app.main: PDF renderer closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [66440]
+2026-03-14 20:47:29,142 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [66861]
+INFO:     Waiting for application startup.
+2026-03-14 20:47:31,103 [INFO] app.main: Starting up Resume Matcher API...
+2026-03-14 20:47:31,103 [INFO] app.main: Data directory verified: /Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data
+2026-03-14 20:47:31,103 [INFO] app.main: Startup complete.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56168 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'app/worker.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-14 20:53:43,843 [INFO] app.main: Shutting down Resume Matcher API...
+2026-03-14 20:53:43,848 [INFO] app.main: PDF renderer closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [66861]
+2026-03-14 20:53:44,374 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [67503]
+INFO:     Waiting for application startup.
+2026-03-14 20:53:46,380 [INFO] app.main: Starting up Resume Matcher API...
+2026-03-14 20:53:46,380 [INFO] app.main: Data directory verified: /Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data
+2026-03-14 20:53:46,380 [INFO] app.main: Startup complete.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/database.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-14 20:56:08,193 [INFO] app.main: Shutting down Resume Matcher API...
+2026-03-14 20:56:08,199 [INFO] app.main: PDF renderer closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [67503]
+2026-03-14 20:56:08,738 [INFO] app.database: Initialized SQLite fallback database at sqlite:////Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data/database.db
+INFO:     Started server process [67871]
+INFO:     Waiting for application startup.
+2026-03-14 20:56:10,489 [INFO] app.main: Starting up Resume Matcher API...
+2026-03-14 20:56:10,489 [INFO] app.main: Data directory verified: /Users/soumyajitghosh/.gemini/antigravity/scratch/Resume-Matcher/apps/backend/data
+2026-03-14 20:56:10,489 [INFO] app.main: Startup complete.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:57461 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+WARNING:  StatReload detected changes in 'app/schemas/models.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-14 21:21:58,475 [INFO] app.main: Shutting down Resume Matcher API...
+2026-03-14 21:21:58,486 [INFO] app.main: PDF renderer closed.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [67871]
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/resumes.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/resumes.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/resumes.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/pdf.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/worker.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/admin.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/config.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/health.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/schemas/models.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>
+WARNING:  StatReload detected changes in 'app/routers/health.py'. Reloading...
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000002006f7100 (most recent call first):
+  <no Python frame>

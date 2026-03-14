@@ -93,3 +93,78 @@ INFO:     127.0.0.1:51898 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:54871 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:56491 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:58265 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:60805 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:62485 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:64581 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+2026-03-14 16:33:27,123 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,128 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,134 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,136 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,138 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,139 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,141 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,142 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,145 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,147 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,148 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,169 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,171 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,173 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,174 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,175 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,175 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,176 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,176 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,177 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,178 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,180 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,181 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,183 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:33:27,373 [WARNING] app.routers.admin: Celery dispatch failed for test_resume.pdf, trying inline: No module named 'celery'
+2026-03-14 16:33:27,374 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m16:33:27 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 16:33:27,480 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m16:33:27 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 16:33:27,485 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+INFO:     127.0.0.1:64738 - "POST /api/v1/admin/cohorts/dab2e943-c02d-427f-bd58-4c672d0b8d15/bulk-upload-resumes HTTP/1.1" 200 OK
+2026-03-14 16:34:52,962 [INFO] app.routers.admin: Successfully decoded CSV using utf-8-sig
+2026-03-14 16:34:52,964 [INFO] app.routers.admin: Attempting to create 1 students for cohort dab2e943-c02d-427f-bd58-4c672d0b8d15
+2026-03-14 16:34:52,996 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:52,998 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:52,999 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,000 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,002 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,002 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,003 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,005 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,006 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,007 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,008 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,009 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,011 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,012 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,013 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,014 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,015 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,015 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,015 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,016 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,017 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,018 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,019 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,020 [WARNING] pdfminer.pdffont: Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+2026-03-14 16:34:53,072 [WARNING] app.routers.admin: Celery dispatch failed for test_resume.pdf, trying inline: No module named 'celery'
+2026-03-14 16:34:53,073 [INFO] app.services.parser: Parsing resume to structured JSON
+[92m16:34:53 - LiteLLM:INFO[0m: utils.py:3887 - 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+2026-03-14 16:34:53,075 [INFO] LiteLLM: 
+LiteLLM completion() model= gemini-3.1-flash-lite-preview; provider = gemini
+[92m16:34:53 - LiteLLM:INFO[0m: vertex_and_google_ai_studio_gemini.py:962 - Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+2026-03-14 16:34:53,075 [INFO] LiteLLM: Warning: Setting temperature < 1.0 for Gemini 3 models (gemini-3.1-flash-lite-preview) can cause infinite loops, degraded reasoning performance, and failure on complex tasks. Strongly recommended to use temperature = 1.0 (default).
+INFO:     127.0.0.1:64787 - "POST /api/v1/admin/cohorts/dab2e943-c02d-427f-bd58-4c672d0b8d15/bulk-upload-resumes HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12548]

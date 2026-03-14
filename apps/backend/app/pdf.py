@@ -139,7 +139,8 @@ async def _render_page_to_pdf(
     await page.set_viewport_size({"width": width, "height": 1123})
     
     await page.goto(url, wait_until="networkidle")
-    await page.wait_for_selector(selector)
+    if selector:
+        await page.wait_for_selector(selector)
     await page.evaluate("document.fonts.ready")
     
     # Add a small delay for any animations or fonts to fully settle

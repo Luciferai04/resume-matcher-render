@@ -12,13 +12,31 @@ from app.database import db
 
 logger = logging.getLogger(__name__)
 
+import redis
+from app.config import settings
+
+# Initialize Redis client
+redis_client = redis.from_url(settings.redis_url)
+
 async def calculate_ats_score(
+    resume_id: str,
     resume_data: dict[str, Any],
+    job_id: str,
     job_description: str,
     job_keywords: dict[str, Any],
     language: str = "en",
 ) -> dict[str, Any]:
-    """Calculate ATS score for a resume against a job description."""
+    """Calculate ATS score for a resume against a job description, with Redis caching."""
+    # Try to fetch from cache first
+    cache_key = f"ats_score:{resume_id}:{job_id}"
+    try:
+        cached_result = redis_client.get(cache_key)
+        if cached_result:
+            logger.info(f"Returning cached ATS score for resume {resume_id} and job {job_id}")
+            return json.loads(cached_result)
+    except Exception as e:
+        logger.warning(f"Redis cache fetch failed: {e}")
+
     language_name = get_language_name(language)
     
     # Calculate keyword match percentage locally to provide as a hint to the LLM
@@ -42,6 +60,16 @@ async def calculate_ats_score(
         prompt += kw_hint
 
     result = await complete_json(prompt=prompt)
+    
+    # Cache result if successful
+    if result:
+        try:
+            # Cache for 24 hours
+            redis_client.setex(cache_key, 86400, json.dumps(result))
+            logger.info(f"Cached ATS score for resume {resume_id} and job {job_id}")
+        except Exception as e:
+            logger.warning(f"Redis cache store failed: {e}")
+            
     return result
 
 async def score_and_update_resume(
@@ -65,7 +93,9 @@ async def score_and_update_resume(
         db.update_job(job_id, {"job_keywords": keywords})
 
     ats_result = await calculate_ats_score(
+        resume_id=resume_id,
         resume_data=processed_data,
+        job_id=job_id,
         job_description=job["content"],
         job_keywords=keywords or {},
     )

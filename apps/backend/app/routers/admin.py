@@ -255,57 +255,34 @@ async def bulk_upload_resumes(
                 user_id = student["user_id"]
                 filename = f"resume_{user_id}.pdf"
                 
-                logger.info("Downloading resume from URL for student %s: %s", user_id, resume_url)
-                downloaded_content = await download_file(resume_url)
-                
-                if not downloaded_content:
-                    results.append({
-                        "filename": filename,
-                        "user_id": user_id,
-                        "status": "error",
-                        "error": f"Failed to download resume from URL: {resume_url}",
-                    })
-                    continue
-                
                 try:
-                    markdown_content = await parse_document(downloaded_content, filename)
+                    # Create placeholder resume
                     resume = await db.create_resume_atomic_master(
-                        content=markdown_content,
+                        content="Pending background capture...",
                         content_type="md",
                         filename=filename,
-                        processing_status="processing",
+                        processing_status="pending",
                         user_id=user_id,
                     )
                     
-                    try:
-                        from app.worker import process_and_score_resume_task
-                        process_and_score_resume_task.delay(resume["resume_id"], job_id=job_id)
-                    except Exception as worker_err:
-                        logger.warning("Celery dispatch failed, trying inline: %s", worker_err)
-                        processed_data = await parse_resume_to_json(markdown_content)
-                        db.update_resume(resume["resume_id"], {
-                            "processed_data": processed_data,
-                            "processing_status": "ready",
-                        }, user_id=user_id)
-                        
-                        # Also try to score if job_id is provided
-                        if job_id:
-                            await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
+                    # Queue the background task
+                    from app.worker import capture_pdf_snapshot_task
+                    capture_pdf_snapshot_task.delay(resume["resume_id"], resume_url, job_id=job_id, user_id=user_id)
                     
                     results.append({
                         "filename": filename,
                         "user_id": user_id,
                         "resume_id": resume["resume_id"],
-                        "status": "uploaded",
-                        "message": "Downloaded from URL"
+                        "status": "processing",
+                        "message": "Queued for background capture and scoring"
                     })
                 except Exception as proc_err:
-                    logger.error("Failed to process downloaded resume for %s: %s", user_id, proc_err, exc_info=True)
+                    logger.error("Failed to queue background processing for %s: %s", user_id, proc_err, exc_info=True)
                     results.append({
                         "filename": filename,
                         "user_id": user_id,
                         "status": "error",
-                        "error": f"Processing failed: {str(proc_err)}",
+                        "error": f"Queuing failed: {str(proc_err)}",
                     })
 
         # Match files to students

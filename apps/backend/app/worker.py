@@ -111,3 +111,50 @@ def generate_tailored_resume_task(resume_id: str, job_id: str, prompt_id: str):
     """
     # This could be expanded to handle the full improvement pipeline asynchronously
     pass
+
+@celery_app.task(name="capture_pdf_snapshot_task")
+def capture_pdf_snapshot_task(resume_id: str, url: str, job_id: Optional[str] = None, user_id: Optional[str] = None):
+    """
+    Background task to capture a PDF snapshot of a URL, parse it, and trigger scoring.
+    """
+    from app.database import db
+    from app.pdf import render_resume_pdf
+    from app.services.parser import parse_document
+    from app.services.downloader import download_file
+
+    logger.info(f"Starting PDF capture for resume {resume_id} from {url}")
+
+    try:
+        # Determine if we should use direct download (for Google Drive) or snapshot
+        if "drive.google.com" in url:
+            logger.info("Using direct download for Google Drive link in background")
+            content = run_async(download_file(url))
+        else:
+            logger.info("Using Playwright snapshot in background")
+            # Use selector=None for external URLs
+            content = run_async(render_resume_pdf(url, selector=None))
+
+        if not content:
+            raise ValueError(f"Failed to acquire content from {url}")
+
+        # Parse to markdown
+        filename = f"resume_{resume_id}.pdf"
+        markdown_content = run_async(parse_document(content, filename))
+
+        # Update resume with content
+        db.update_resume(
+            resume_id,
+            {
+                "content": markdown_content,
+                "processing_status": "processing",
+            },
+            user_id=user_id
+        )
+
+        # Trigger the next stage: processing and scoring
+        process_and_score_resume_task.delay(resume_id, job_id=job_id)
+        logger.info(f"Successfully captured and queued processing for resume {resume_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to capture PDF for resume {resume_id}: {e}", exc_info=True)
+        db.update_resume(resume_id, {"processing_status": "failed"}, user_id=user_id)

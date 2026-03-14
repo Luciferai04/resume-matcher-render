@@ -140,6 +140,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     frontend_base_url: str = "http://localhost:3000"
+    redis_url: str = "redis://localhost:6379/0"
 
     # CORS Configuration
     cors_origins: list[str] = [
