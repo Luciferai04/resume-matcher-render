@@ -125,15 +125,15 @@ class Database:
             # Connect separately for each migration to avoid transaction block errors in Postgres
             with self.engine.connect() as conn:
                 try:
-                    # Check if column exists
-                    conn.execute(text(f"SELECT {column} FROM {table} LIMIT 1"))
+                    # Check if column exists - quote table/column names for Postgres safety
+                    conn.execute(text(f'SELECT "{column}" FROM "{table}" LIMIT 1'))
                 except Exception:
                     # Column likely doesn't exist, try adding it in a fresh transaction
                     logger.info("Adding column %s.%s (%s)", table, column, col_type)
                     with self.engine.begin() as begin_conn:
                         try:
                             # Attempt to add column
-                            begin_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                            begin_conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}'))
                         except Exception as e:
                             logger.warning("Migration for %s.%s failed: %s", table, column, e)
 

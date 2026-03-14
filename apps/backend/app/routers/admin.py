@@ -588,7 +588,7 @@ async def bulk_upload_resumes(
             "results": results,
         }
     except Exception as e:
-        logger.exception("Critial error in bulk_upload_resumes")
+        logger.exception("Critical error in bulk_upload_resumes")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.post("/students/{user_id}/retry")
