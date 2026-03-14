@@ -114,19 +114,22 @@ class Database:
             ("resume", "ats_score", "INTEGER"),
             ("resume", "ats_breakdown", "JSON"),
         ]
-        with self.engine.begin() as conn:
-            for table, column, col_type in migrations:
+        
+        for table, column, col_type in migrations:
+            # Connect separately for each migration to avoid transaction block errors in Postgres
+            with self.engine.connect() as conn:
                 try:
                     # Check if column exists
                     conn.execute(text(f"SELECT {column} FROM {table} LIMIT 1"))
                 except Exception:
+                    # Column likely doesn't exist, try adding it in a fresh transaction
                     logger.info("Adding column %s.%s (%s)", table, column, col_type)
-                    try:
-                        # Attempt to add column
-                        # Note: Simple ALTER TABLE works for SQLite and Postgres for basic types
-                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-                    except Exception as e:
-                        logger.warning("Migration for %s.%s failed: %s", table, column, e)
+                    with self.engine.begin() as begin_conn:
+                        try:
+                            # Attempt to add column
+                            begin_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                        except Exception as e:
+                            logger.warning("Migration for %s.%s failed: %s", table, column, e)
 
     def get_session(self):
         return Session(self.engine)
