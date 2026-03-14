@@ -83,6 +83,7 @@ async def root():
     return {
         "name": "Resume Matcher API",
         "version": __version__,
+        "debug_id": "diag_route_v1",
         "docs": "/docs",
     }
 
