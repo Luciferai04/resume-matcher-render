@@ -345,24 +345,24 @@ async def check_llm_health(
         response = await litellm.acompletion(**kwargs)
         content = _extract_choice_text(response.choices[0])
         if not content:
-            logging.warning(
-                "LLM health check returned empty content",
+            logging.error(
+                "LLM health check failed: empty response content",
                 extra={"provider": config.provider, "model": config.model},
             )
-            result: dict[str, Any] = {
-                "healthy": True,
+            return {
+                "healthy": False,
                 "provider": config.provider,
                 "model": config.model,
-                "response_model": getattr(response, "model", None),
-                "warning": "LLM returned empty content for health check",
+                "error_code": "empty_response",
+                "warning": "LLM returned no content for health check",
             }
-        else:
-            result = {
-                "healthy": True,
-                "provider": config.provider,
-                "model": config.model,
-                "response_model": getattr(response, "model", None),
-            }
+        
+        result = {
+            "healthy": True,
+            "provider": config.provider,
+            "model": config.model,
+            "response_model": getattr(response, "model", None),
+        }
 
         if include_details:
             result["test_prompt"] = _to_code_block(prompt)
