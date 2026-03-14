@@ -587,6 +587,10 @@ async def bulk_upload_resumes(
             "message": f"Bulk upload completed: {uploaded} successful, {failed} failed",
             "results": results,
         }
+    except Exception as e:
+        logger.exception("Critial error in bulk_upload_resumes")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
 @router.post("/students/{user_id}/retry")
 async def retry_student_processing(user_id: str, job_id: Optional[str] = None):
     """Manually trigger background processing and scoring for a student's master resume."""
