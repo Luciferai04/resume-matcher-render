@@ -100,20 +100,22 @@ async def get_resume_stats():
         with db.get_session() as session:
             # Count by status
             stmt = select(Resume.processing_status, func.count(Resume.resume_id)).group_by(Resume.processing_status)
-            results = session.exec(stmt).all()
+            stats_results = session.exec(stmt).all()
             
             # Get last 5 resumes for inspection
             last_resumes = session.exec(select(Resume).order_by(Resume.created_at.desc()).limit(5)).all()
             
+            from app.database import _unwrap_row
+            
             return {
-                "status_breakdown": {row[0]: row[1] for row in results},
+                "status_breakdown": {row[0]: row[1] for row in stats_results},
                 "recent_resumes": [
                     {
-                        "id": r.resume_id,
-                        "filename": r.filename,
-                        "status": r.processing_status,
-                        "error": r.error_message,
-                        "created_at": r.created_at.isoformat() if r.created_at else None
+                        "id": getattr(_unwrap_row(r), "resume_id", None),
+                        "filename": getattr(_unwrap_row(r), "filename", None),
+                        "status": getattr(_unwrap_row(r), "processing_status", None),
+                        "error": getattr(_unwrap_row(r), "error_message", None),
+                        "created_at": getattr(_unwrap_row(r), "created_at", datetime.datetime.now()).isoformat() if getattr(_unwrap_row(r), "created_at", None) else None
                     }
                     for r in last_resumes
                 ]
@@ -128,6 +130,7 @@ async def get_failed_resumes():
     try:
         from sqlalchemy import select
         from app.models import Resume
+        from app.database import _unwrap_row
         import traceback
         
         with db.get_session() as session:
@@ -135,10 +138,10 @@ async def get_failed_resumes():
             results = session.exec(statement).all()
             return [
                 {
-                    "resume_id": r.resume_id,
-                    "filename": r.filename,
-                    "error": r.error_message,
-                    "created_at": r.created_at.isoformat() if r.created_at else None
+                    "resume_id": getattr(_unwrap_row(r), "resume_id", None),
+                    "filename": getattr(_unwrap_row(r), "filename", None),
+                    "error": getattr(_unwrap_row(r), "error_message", None),
+                    "created_at": getattr(_unwrap_row(r), "created_at", datetime.datetime.now()).isoformat() if getattr(_unwrap_row(r), "created_at", None) else None
                 }
                 for r in results
             ]
