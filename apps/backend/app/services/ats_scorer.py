@@ -101,13 +101,17 @@ async def score_and_update_resume(
     )
     
     if ats_result:
-        # Map various possible score keys from LLM
-        raw_score = (
-            ats_result.get("totalScore") or 
-            ats_result.get("total_score") or 
-            ats_result.get("overall_score") or 
-            ats_result.get("score")
-        )
+        # Map various possible score keys from LLM (robust mapping)
+        score_keys = [
+            "totalScore", "total_score", "ats_score", "atsScore", 
+            "overall_score", "score", "match_percentage", "matchScore"
+        ]
+        
+        raw_score = None
+        for key in score_keys:
+            if key in ats_result:
+                raw_score = ats_result[key]
+                break
         
         # Sanitize score to integer
         score = 0
@@ -117,7 +121,7 @@ async def score_and_update_resume(
                     score = int(raw_score)
                 else:
                     # Handle strings like "85%", "85/100", etc.
-                    score_str = str(raw_score).split('/')[0].rstrip('%').strip()
+                    score_str = str(raw_score).split('/')[0].split(':')[0].rstrip('%').strip()
                     # Extract digits only
                     score_digits = "".join(filter(str.isdigit, score_str))
                     if score_digits:
@@ -125,11 +129,15 @@ async def score_and_update_resume(
             except (ValueError, TypeError):
                 logger.warning(f"Failed to parse ATS score '{raw_score}' to integer")
         
+        # Robust mapping for breakdown
+        breakdown = ats_result.get("breakdown") or ats_result.get("ats_breakdown") or ats_result.get("breakdown_scores") or {}
+        
         updates = {
             "ats_score": score,
-            "ats_breakdown": ats_result.get("breakdown")
+            "ats_breakdown": breakdown
         }
         db.update_resume(resume_id, updates, user_id=user_id)
+        logger.info(f"Updated resume {resume_id} with ATS score: {score}")
         return updates
     
     return {}

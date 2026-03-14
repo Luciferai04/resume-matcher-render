@@ -34,8 +34,13 @@ async def download_file(url: str) -> Optional[bytes]:
             response = await client.get(target_url)
             response.raise_for_status()
             
+            # Check for Google login page (indicates private file)
+            # Look for common signatures of the Google accounts login page
+            if "ServiceLogin" in str(response.url) or "accounts.google.com" in str(response.url):
+                logger.error("Google Drive file is private and requires sign-in: %s", url)
+                raise ValueError("Access denied: This Google Drive file is private. Please ensure 'Anyone with the link' can view it.")
+
             # Google Drive sometimes shows a "virus scan warning" page if file is large
-            # This check is basic but covers common cases
             if "virus scan" in response.text.lower() and "confirm=" in response.text:
                 confirm_match = re.search(r'confirm=([a-zA-Z0-9_-]+)', response.text)
                 if confirm_match:
@@ -46,6 +51,9 @@ async def download_file(url: str) -> Optional[bytes]:
                     response.raise_for_status()
 
             return response.content
+    except httpx.HTTPStatusError as e:
+        logger.error("HTTP error downloading file from %s: %s", url, e)
+        raise ValueError(f"Failed to download file: HTTP {e.response.status_code}")
     except Exception as e:
         logger.error("Failed to download file from %s: %s", url, e)
-        return None
+        raise e

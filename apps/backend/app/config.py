@@ -122,8 +122,8 @@ class Settings(BaseSettings):
     # LLM Configuration
     llm_provider: Literal[
         "openai", "anthropic", "openrouter", "gemini", "deepseek", "ollama"
-    ] = "openai"
-    llm_model: str = "gpt-5-nano-2025-08-07"
+    ] = "gemini"
+    llm_model: str = "gemini-flash-latest"
     llm_api_key: str = ""
     llm_api_base: str | None = None  # For Ollama or custom endpoints
     database_url: str | None = None  # PostgreSQL URL

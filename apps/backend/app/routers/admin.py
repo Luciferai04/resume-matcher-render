@@ -111,11 +111,13 @@ async def get_resume_stats():
                 "status_breakdown": {row[0]: row[1] for row in stats_results},
                 "recent_resumes": [
                     {
-                        "id": getattr(_unwrap_row(r), "resume_id", None),
-                        "filename": getattr(_unwrap_row(r), "filename", None),
-                        "status": getattr(_unwrap_row(r), "processing_status", None),
-                        "error": getattr(_unwrap_row(r), "error_message", None),
-                        "created_at": getattr(_unwrap_row(r), "created_at", datetime.datetime.now()).isoformat() if getattr(_unwrap_row(r), "created_at", None) else None
+                        "id": obj.resume_id if (obj := _unwrap_row(r)) else None,
+                        "filename": obj.filename if obj else None,
+                        "status": obj.processing_status if obj else None,
+                        "ats_score": obj.ats_score if obj else None,
+                        "parent_id": obj.parent_id if obj else None,
+                        "error": obj.error_message if obj else None,
+                        "created_at": obj.created_at.isoformat() if obj and obj.created_at else None
                     }
                     for r in last_resumes
                 ]
@@ -123,6 +125,39 @@ async def get_resume_stats():
     except Exception as e:
         import traceback
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+
+@router.get("/diag/llm")
+async def test_llm_connectivity():
+    """Test LLM connectivity with current configuration."""
+    try:
+        from app.llm import complete_json
+        from app.config import settings
+        
+        config_path = settings.config_path
+        config_info = {}
+        if config_path.exists():
+            import json
+            config_info = json.loads(config_path.read_text())
+            # Mask API key
+            if "api_key" in config_info:
+                config_info["api_key"] = config_info["api_key"][:6] + "..." + config_info["api_key"][-4:] if len(config_info["api_key"]) > 10 else "***"
+        
+        prompt = "Return a JSON object with a single key 'status' and value 'ok'. This is a connectivity test."
+        result = await complete_json(prompt=prompt)
+        
+        return {
+            "status": "success",
+            "config": config_info,
+            "test_result": result
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 @router.get("/diag/failures")
 async def get_failed_resumes():
@@ -138,10 +173,10 @@ async def get_failed_resumes():
             results = session.exec(statement).all()
             return [
                 {
-                    "resume_id": getattr(_unwrap_row(r), "resume_id", None),
-                    "filename": getattr(_unwrap_row(r), "filename", None),
-                    "error": getattr(_unwrap_row(r), "error_message", None),
-                    "created_at": getattr(_unwrap_row(r), "created_at", datetime.datetime.now()).isoformat() if getattr(_unwrap_row(r), "created_at", None) else None
+                    "resume_id": obj.resume_id if (obj := _unwrap_row(r)) else None,
+                    "filename": obj.filename if obj else None,
+                    "error": obj.error_message if obj else None,
+                    "created_at": obj.created_at.isoformat() if obj and obj.created_at else None
                 }
                 for r in results
             ]

@@ -62,4 +62,18 @@ async def parse_resume_to_json(markdown_text: str) -> dict[str, Any]:
     if not result or not isinstance(result, dict):
         raise ValueError("Failed to parse resume to a valid JSON object")
         
+    # Deep validation: Ensure we found actual resume content
+    # If personalInfo, workExperience, and education are all empty, something is wrong.
+    personal_info = result.get("personalInfo", {})
+    has_name = bool(personal_info.get("name"))
+    has_exp = bool(result.get("workExperience"))
+    has_edu = bool(result.get("education"))
+    
+    if not (has_name or has_exp or has_edu):
+        logger.warning("Parsed resume appears empty or missing core information")
+        # Check for signature of failure (like sign-in pages) if not caught by downloader
+        if "sign in" in markdown_text.lower() or "log in" in markdown_text.lower():
+            raise ValueError("Document appears to be a login page or contains no resume content.")
+        raise ValueError("Document contains no recognizable resume data (Name, Experience, or Education).")
+        
     return result
