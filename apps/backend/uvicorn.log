@@ -92,3 +92,4 @@ INFO:     127.0.0.1:49866 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:51898 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:54871 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
 INFO:     127.0.0.1:56491 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:58265 - "OPTIONS /api/v1/status HTTP/1.1" 400 Bad Request

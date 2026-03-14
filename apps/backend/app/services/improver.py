@@ -69,17 +69,26 @@ def _check_for_truncation(data: dict[str, Any]) -> None:
 
 
 async def extract_job_keywords(job_description: str) -> dict[str, Any]:
-    """Mock job keyword extraction for verification."""
-    return {
-        "required_skills": ["Python", "FastAPI", "React", "ATS systems", "Cloud-native"],
-        "soft_skills": ["Communication", "Problem Solving"],
-        "key_responsibilities": [
-            "Develop scalable AI solutions",
-            "Optimize AI pipeline performance",
-            "Maintain cloud infrastructure"
-        ],
-        "experience_requirements": ["3+ years in AI/ML engineering"]
-    }
+    """Extract keywords and requirements from a job description using LLM."""
+    logger.info("Extracting keywords from job description")
+    
+    sanitized_jd = _sanitize_user_input(job_description)
+    
+    try:
+        result = await complete_json(
+            prompt=EXTRACT_KEYWORDS_PROMPT.format(job_description=sanitized_jd),
+            retries=2
+        )
+        
+        # Ensure result has at least some fields we expect
+        if not result or not isinstance(result, dict):
+            logger.warning("LLM returned invalid format for keywords, using fallback")
+            return {"keywords": [], "required_skills": []}
+            
+        return result
+    except Exception as e:
+        logger.error(f"Failed to extract keywords from job description: {e}")
+        return {"keywords": [], "required_skills": []}
 
 
 async def improve_resume(

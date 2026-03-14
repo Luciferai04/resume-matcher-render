@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from typing import Optional
 from celery import Celery
 from app.config import settings
@@ -21,6 +22,18 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+def run_async(coro):
+    """Helper to run async coroutines in a synchronous context (Celery worker)."""
+    try:
+        # Standard approach for sync contexts
+        return asyncio.run(coro)
+    except RuntimeError as e:
+        # If there's already a loop running (e.g. if worker is using an event loop based execution)
+        if "already running" in str(e):
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(coro)
+        raise e
+
 @celery_app.task(name="process_resume_task")
 def process_resume_task(resume_id: str):
     """
@@ -28,7 +41,6 @@ def process_resume_task(resume_id: str):
     """
     from app.database import db
     from app.services.parser import parse_resume_to_json
-    import asyncio
 
     logger.info(f"Starting background processing for resume {resume_id}")
     
@@ -38,9 +50,7 @@ def process_resume_task(resume_id: str):
         return
 
     try:
-        # Run the async parser in the celery worker's event loop
-        loop = asyncio.get_event_loop()
-        processed_data = loop.run_until_complete(parse_resume_to_json(resume["content"]))
+        processed_data = run_async(parse_resume_to_json(resume["content"]))
         
         db.update_resume(
             resume_id,
@@ -63,7 +73,6 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
     from app.services.parser import parse_resume_to_json
     from app.services.ats_scorer import calculate_ats_score
     from app.services.improver import extract_job_keywords
-    import asyncio
 
     logger.info(f"Starting integrated processing for resume {resume_id}")
     
@@ -73,10 +82,8 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
         return
 
     try:
-        loop = asyncio.get_event_loop()
-        
         # 1. Parse to JSON
-        processed_data = loop.run_until_complete(parse_resume_to_json(resume["content"]))
+        processed_data = run_async(parse_resume_to_json(resume["content"]))
         
         updates = {
             "processed_data": processed_data,
@@ -84,7 +91,7 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
         }
 
         # 2. Optionally score against job
-        if job_id:
+        if job_id and job_id.strip():
             job = db.get_job(job_id)
             if job:
                 logger.info(f"Calculating ATS score for resume {resume_id} against job {job_id}")
@@ -92,19 +99,25 @@ def process_and_score_resume_task(resume_id: str, job_id: Optional[str] = None):
                 keywords = job.get("job_keywords")
                 if not keywords:
                     logger.info(f"Extracting keywords for job {job_id}")
-                    keywords = loop.run_until_complete(extract_job_keywords(job["content"]))
+                    keywords = run_async(extract_job_keywords(job["content"]))
                     # Update job with extracted keywords
                     db.update_job(job_id, {"job_keywords": keywords})
 
-                ats_result = loop.run_until_complete(calculate_ats_score(
+                ats_result = run_async(calculate_ats_score(
                     resume_data=processed_data,
                     job_description=job["content"],
                     job_keywords=keywords or {},
                 ))
                 if ats_result:
                     logger.info(f"ATS Result for {resume_id}: {ats_result}")
-                    # Map 'totalScore' from prompt to 'ats_score' in DB
-                    updates["ats_score"] = ats_result.get("totalScore") or ats_result.get("overall_score")
+                    # Map various possible score keys from LLM
+                    score = (
+                        ats_result.get("totalScore") or 
+                        ats_result.get("total_score") or 
+                        ats_result.get("overall_score") or 
+                        ats_result.get("score")
+                    )
+                    updates["ats_score"] = score
                     updates["ats_breakdown"] = ats_result.get("breakdown")
                 else:
                     logger.warning(f"ATS Scoring returned no result for resume {resume_id}")
