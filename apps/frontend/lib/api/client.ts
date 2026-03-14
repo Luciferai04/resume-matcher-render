@@ -6,8 +6,16 @@
 
 import { getUserId } from './auth';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+const getApiUrl = () => {
+  let url = process.env.NEXT_PUBLIC_API_URL ?? '';
+  // If we're on a secure page, ensure API calls use HTTPS to avoid Mixed Content errors
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http:')) {
+    url = url.replace('http:', 'https:');
+  }
+  return url;
+};
 
+export const API_URL = getApiUrl();
 export const API_BASE = `${API_URL}/api/v1`;
 
 /**
