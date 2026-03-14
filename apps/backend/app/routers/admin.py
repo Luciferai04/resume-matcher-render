@@ -91,6 +91,37 @@ async def check_schema():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@router.get("/diag/resumes")
+async def get_resume_stats():
+    """Get breakdown of all resumes by status."""
+    try:
+        from sqlalchemy import func, select
+        from app.models import Resume
+        with db.get_session() as session:
+            # Count by status
+            stmt = select(Resume.processing_status, func.count(Resume.resume_id)).group_by(Resume.processing_status)
+            results = session.exec(stmt).all()
+            
+            # Get last 5 resumes for inspection
+            last_resumes = session.exec(select(Resume).order_by(Resume.created_at.desc()).limit(5)).all()
+            
+            return {
+                "status_breakdown": {row[0]: row[1] for row in results},
+                "recent_resumes": [
+                    {
+                        "id": r.resume_id,
+                        "filename": r.filename,
+                        "status": r.processing_status,
+                        "error": r.error_message,
+                        "created_at": r.created_at.isoformat() if r.created_at else None
+                    }
+                    for r in last_resumes
+                ]
+            }
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
 @router.get("/diag/failures")
 async def get_failed_resumes():
     """Diagnostic route to check failed resumes and error messages."""
