@@ -344,6 +344,7 @@ Output the title only, nothing else."""
 # Alias for backward compatibility
 RESUME_SCHEMA = RESUME_SCHEMA_EXAMPLE
 
+
 ATS_SCORE_PROMPT = """Analyze the resume against the job description and provide a comprehensive ATS (Applicant Tracking System) score.
 
 IMPORTANT: Write in {output_language}.
@@ -388,6 +389,42 @@ Output ONLY a JSON object with this format:
     "Quantify your impact in the 'AI Engineer' role by adding specific metrics (e.g., 'reduced latency by 20%')",
     "Add your LinkedIn profile link to the contact information",
     "Include missing keywords: 'Kubernetes', 'CI/CD'"
+  ]
+}}"""
+
+GENERAL_RESUME_SCORE_PROMPT = """Analyze this resume and provide a general quality score and feedback.
+
+IMPORTANT: Write in {output_language}.
+
+Resume (JSON):
+{resume_data}
+
+Scoring Criteria (Total 100 points):
+1. **Impact & Achievements (40 points)**:
+   - Use of metrics, percentages, or results-oriented language.
+   - Strong action verbs and professional summaries.
+2. **Structural Completeness (30 points)**:
+   - Presence of Contact Info, Experience, Education, and Skills.
+3. **Clarity & Formatting (30 points)**:
+   - Readability, consistency, and professional presentation.
+
+Rules:
+- Be objective but helpful.
+- Provide a total score between 0 and 100.
+- Provide 3-5 high-impact, actionable suggestions to improve the resume.
+
+Output ONLY a JSON object with this format:
+{{
+  "totalScore": 75,
+  "breakdown": {{
+    "impactAndAchievements": 30,
+    "structuralCompleteness": 25,
+    "clarityAndFormatting": 20
+  }},
+  "suggestions": [
+    "Add more specific metrics to your lead engineer role",
+    "Include a professional summary at the beginning",
+    "Ensure consistent date formatting throughout"
   ]
 }}"""
 

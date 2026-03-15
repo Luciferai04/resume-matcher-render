@@ -688,7 +688,14 @@ async def rescore_all_unscored(cohort_id: str, job_id: Optional[str] = None):
                 logger.info("No job provided or found for bulk rescore, using general scoring")
                 job_id = None
     
-    students = db.get_cohort_students_progress(cohort_id)
+    # Get students directly from DB to avoid any complex filtering logic in progress helper
+    from app.models import User
+    from app.database import _unwrap_row
+    
+    with db.get_session() as session:
+        users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
+        students = [_unwrap_row(u) for u in users]
+    
     scored = 0
     failed = 0
     skipped = 0
