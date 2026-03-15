@@ -32,6 +32,21 @@ async def calculate_ats_score(
     
     return await complete_json(prompt=prompt)
 
+async def calculate_general_resume_score(
+    resume_data: dict[str, Any],
+    language: str = "en",
+) -> dict[str, Any]:
+    """Calculate a general resume quality score when no job is provided."""
+    from app.prompts.templates import GENERAL_RESUME_SCORE_PROMPT
+    language_name = get_language_name(language)
+    
+    prompt = GENERAL_RESUME_SCORE_PROMPT.format(
+        output_language=language_name,
+        resume_data=json.dumps(resume_data, indent=2),
+    )
+    
+    return await complete_json(prompt=prompt)
+
 async def parse_and_score_integrated(
     resume_text: str,
     job_id: str,
@@ -90,25 +105,29 @@ async def score_and_update_resume(
     user_id: Optional[str] = None
 ) -> dict[str, Any]:
     """Calculate ATS score for a resume and update it in the database."""
-    job = db.get_job(job_id)
+    # If no job_id or job doesn't exist, calculate a general score
+    job = db.get_job(job_id) if job_id else None
+    
     if not job:
-        logger.warning(f"Job {job_id} not found for scoring resume {resume_id}")
-        return {}
+        logger.info(f"No job provided for resume {resume_id}, calculating general score")
+        ats_result = await calculate_general_resume_score(
+            resume_data=processed_data,
+        )
+    else:
+        # Get keywords (extract if missing)
+        keywords = job.get("job_keywords")
+        if not keywords:
+            logger.info(f"Extracting keywords for job {job_id}")
+            keywords = await extract_job_keywords(job["content"])
+            db.update_job(job_id, {"job_keywords": keywords})
 
-    # Get keywords (extract if missing)
-    keywords = job.get("job_keywords")
-    if not keywords:
-        logger.info(f"Extracting keywords for job {job_id}")
-        keywords = await extract_job_keywords(job["content"])
-        db.update_job(job_id, {"job_keywords": keywords})
-
-    ats_result = await calculate_ats_score(
-        resume_id=resume_id,
-        resume_data=processed_data,
-        job_id=job_id,
-        job_description=job["content"],
-        job_keywords=keywords or {},
-    )
+        ats_result = await calculate_ats_score(
+            resume_id=resume_id,
+            resume_data=processed_data,
+            job_id=job_id,
+            job_description=job["content"],
+            job_keywords=keywords or {},
+        )
     
     if ats_result:
         score = extract_score(ats_result)

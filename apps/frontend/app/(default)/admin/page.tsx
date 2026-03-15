@@ -284,6 +284,10 @@ export default function AdminPage() {
 
     const handleRescoreAll = async () => {
         if (!selectedCohort) return;
+        
+        // No longer preventing rescoring if jobs.length === 0
+        // The backend will now provide a general score.
+
         setRescoring(true);
         try {
             const query = scoringJobId.trim() ? `?job_id=${scoringJobId.trim()}` : '';
@@ -293,7 +297,7 @@ export default function AdminPage() {
                 alert(`Rescoring complete: ${data.scored} scored, ${data.failed} failed, ${data.skipped} skipped`);
                 fetchCohortData(selectedCohort);
             } else {
-                alert(`Rescore failed: ${data.message || 'Unknown error'}`);
+                alert(data.message || 'Unknown error during rescoring');
             }
         } catch (err: any) {
             console.error('Rescore failed:', err);
@@ -497,7 +501,7 @@ export default function AdminPage() {
                             onChange={e => setScoringJobId(e.target.value)}
                             style={{ ...inputStyle, padding: '4px 12px', fontSize: '12px', textTransform: 'uppercase' }}
                         >
-                            <option value="">No Active Job (Automatic)</option>
+                            <option value="">No Active Job (General Score)</option>
                             {jobs.length > 0 ? (
                                 <optgroup label="Select Job">
                                     {jobs.map(j => (

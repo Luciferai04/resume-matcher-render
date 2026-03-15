@@ -39,6 +39,30 @@ async def seed_data():
                 session.add(user)
                 print(f"Created User: {user.name} ({user.user_id})")
         
+        # Create a Job Description
+        from app.models import Job
+        job = session.exec(select(Job).limit(1)).first()
+        if not job:
+            job = Job(
+                user_id="admin_demo",
+                content="""# Software Engineer (Generic)
+We are looking for a versatile Software Engineer with experience in:
+- Python and web frameworks (FastAPI/Django)
+- Frontend technologies (React/Next.js)
+- Database management (PostgreSQL/Redis)
+- Cloud infrastructure and DevOps
+- AI/ML integration is a plus.
+""",
+                job_keywords={
+                    "required_skills": ["Python", "FastAPI", "React", "PostgreSQL"],
+                    "soft_skills": ["Communication", "Problem Solving"],
+                    "experience_years": 2,
+                    "keywords": ["Software Engineer", "Developer", "Backend", "Frontend"]
+                }
+            )
+            session.add(job)
+            print(f"Created Default Job: {job.job_id}")
+
         session.commit()
     
     print("Seeding complete.")

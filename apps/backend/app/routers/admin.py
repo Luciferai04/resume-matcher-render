@@ -253,7 +253,8 @@ async def diag_rescore_resume(resume_id: str, job_id: Optional[str] = None):
                     job_obj = _unwrap_row(job_res)
                     job_id = job_obj.job_id
                 else:
-                    return {"status": "error", "message": "No job_id provided and no jobs found in database"}
+                    logger.info("No job provided or found for manual rescore, using general scoring")
+                    job_id = None
 
             logger.info("Triggering manual re-score for resume %s against job %s", resume_id, job_id)
             result = await score_and_update_resume(resume_id, obj.processed_data, job_id, user_id=obj.user_id)
@@ -683,9 +684,9 @@ async def rescore_all_unscored(cohort_id: str, job_id: Optional[str] = None):
             if latest_job:
                 job_obj = _unwrap_row(latest_job)
                 job_id = job_obj.job_id
-    
-    if not job_id:
-        return {"status": "error", "message": "No job_id provided and no jobs found in database"}
+            else:
+                logger.info("No job provided or found for bulk rescore, using general scoring")
+                job_id = None
     
     students = db.get_cohort_students_progress(cohort_id)
     scored = 0
