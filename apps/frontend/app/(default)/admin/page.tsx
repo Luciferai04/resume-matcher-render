@@ -170,6 +170,7 @@ export default function AdminPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [scoringJobId, setScoringJobId] = useState('');
     const [retrying, setRetrying] = useState<Record<string, boolean>>({});
+    const [rescoring, setRescoring] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -278,6 +279,27 @@ export default function AdminPage() {
             console.error('Retry failed:', err);
         } finally {
             setRetrying(prev => ({ ...prev, [userId]: false }));
+        }
+    };
+
+    const handleRescoreAll = async () => {
+        if (!selectedCohort) return;
+        setRescoring(true);
+        try {
+            const query = scoringJobId.trim() ? `?job_id=${scoringJobId.trim()}` : '';
+            const res = await apiPost(`/admin/cohorts/${selectedCohort}/rescore-all${query}`, {});
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(`Rescoring complete: ${data.scored} scored, ${data.failed} failed, ${data.skipped} skipped`);
+                fetchCohortData(selectedCohort);
+            } else {
+                alert(`Rescore failed: ${data.message || 'Unknown error'}`);
+            }
+        } catch (err: any) {
+            console.error('Rescore failed:', err);
+            alert(`Error: ${err.message || 'Failed to rescore'}`);
+        } finally {
+            setRescoring(false);
         }
     };
 
@@ -508,6 +530,32 @@ export default function AdminPage() {
                                     <StatCard label="ATS Scored" value={stats.resumes_scored} accent={VIOLET} />
                                     <StatCard label="Avg ATS Score" value={stats.average_ats_score ?? '—'} accent={GREEN} />
                                     <StatCard label="Improved" value={stats.resumes_improved} accent={ORANGE} />
+                                </div>
+                            )}
+
+                            {/* Rescore Button */}
+                            {stats && stats.resumes_uploaded > 0 && (
+                                <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <button
+                                        onClick={handleRescoreAll}
+                                        disabled={rescoring}
+                                        style={{
+                                            ...btnPrimary,
+                                            background: VIOLET,
+                                            opacity: rescoring ? 0.4 : 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                        }}
+                                    >
+                                        <BarChart3 size={14} />
+                                        {rescoring ? 'Scoring...' : 'Rescore All Unscored'}
+                                    </button>
+                                    {stats.resumes_scored < stats.resumes_uploaded && (
+                                        <span style={{ fontFamily: FONT_MONO, fontSize: '11px', color: ORANGE }}>
+                                            {stats.resumes_uploaded - stats.resumes_scored} resumes need scoring
+                                        </span>
+                                    )}
                                 </div>
                             )}
 

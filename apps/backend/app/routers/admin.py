@@ -557,9 +557,20 @@ async def bulk_upload_resumes(
                             "processing_status": "ready",
                         }, user_id=user_id)
                         
-                        # Also try to score if job_id is provided
-                        if job_id:
-                            await score_and_update_resume(resume["resume_id"], processed_data, job_id, user_id=user_id)
+                        # Auto-find a job to score against if none provided
+                        effective_job_id = job_id
+                        if not effective_job_id:
+                            from app.models import Job as JobModel
+                            with db.get_session() as jsession:
+                                latest_job = jsession.exec(select(JobModel).order_by(JobModel.created_at.desc()).limit(1)).first()
+                                if latest_job:
+                                    from app.database import _unwrap_row
+                                    job_obj = _unwrap_row(latest_job)
+                                    effective_job_id = job_obj.job_id
+                                    logger.info("Auto-selected job %s for scoring resume %s", effective_job_id, resume["resume_id"])
+                        
+                        if effective_job_id:
+                            await score_and_update_resume(resume["resume_id"], processed_data, effective_job_id, user_id=user_id)
                     except Exception as inline_err:
                         logger.error("Inline processing failed for %s: %s", filename, inline_err)
                         db.update_resume(resume["resume_id"], {
@@ -594,24 +605,133 @@ async def bulk_upload_resumes(
 @router.post("/students/{user_id}/retry")
 async def retry_student_processing(user_id: str, job_id: Optional[str] = None):
     """Manually trigger background processing and scoring for a student's master resume."""
+    from app.models import Resume
+    from app.database import _unwrap_row
+    
     with db.get_session() as session:
-        from app.models import Resume
         stmt = select(Resume).where(Resume.user_id == user_id, Resume.is_master == True)
-        resume = session.exec(stmt).first()
-        if not resume:
+        resume_row = session.exec(stmt).first()
+        if not resume_row:
             raise HTTPException(status_code=404, detail="Master resume not found for this student")
+        
+        resume = _unwrap_row(resume_row)
+        resume_id = resume.resume_id
+        has_processed_data = resume.processed_data is not None
         
         # Reset status to processing
         resume.processing_status = "processing"
         resume.error_message = None
         session.add(resume)
         session.commit()
-        
-        # Dispatch task
+    
+    # Auto-find job if none provided
+    if not job_id:
+        from app.models import Job as JobModel
+        with db.get_session() as jsession:
+            latest_job = jsession.exec(select(JobModel).order_by(JobModel.created_at.desc()).limit(1)).first()
+            if latest_job:
+                job_obj = _unwrap_row(latest_job)
+                job_id = job_obj.job_id
+                logger.info("Auto-selected job %s for retry of user %s", job_id, user_id)
+    
+    # Try Celery first, fall back to inline
+    try:
         from app.worker import process_and_score_resume_task
-        process_and_score_resume_task.delay(resume.resume_id, job_id=job_id)
-        
+        process_and_score_resume_task.delay(resume_id, job_id=job_id)
         return {"status": "success", "message": "Processing task dispatched"}
+    except Exception as worker_err:
+        logger.warning("Celery unavailable for retry, trying inline: %s", worker_err)
+        try:
+            resume_data = db.get_resume(resume_id)
+            if resume_data and resume_data.get("processed_data") and job_id:
+                # Already parsed, just score
+                await score_and_update_resume(resume_id, resume_data["processed_data"], job_id, user_id=user_id)
+                return {"status": "success", "message": "Scored inline (Celery unavailable)"}
+            elif resume_data and resume_data.get("content"):
+                # Need to parse first, then score
+                processed_data = await parse_resume_to_json(resume_data["content"])
+                db.update_resume(resume_id, {
+                    "processed_data": processed_data,
+                    "processing_status": "ready",
+                }, user_id=user_id)
+                if job_id:
+                    await score_and_update_resume(resume_id, processed_data, job_id, user_id=user_id)
+                return {"status": "success", "message": "Processed and scored inline (Celery unavailable)"}
+            else:
+                db.update_resume(resume_id, {"processing_status": "failed", "error_message": "No content to process"}, user_id=user_id)
+                return {"status": "error", "message": "Resume has no content to process"}
+        except Exception as inline_err:
+            logger.error("Inline retry failed for %s: %s", user_id, inline_err, exc_info=True)
+            db.update_resume(resume_id, {"processing_status": "failed", "error_message": str(inline_err)}, user_id=user_id)
+            return {"status": "error", "message": f"Inline processing failed: {str(inline_err)}"}
+
+
+@router.post("/cohorts/{cohort_id}/rescore-all")
+async def rescore_all_unscored(cohort_id: str, job_id: Optional[str] = None):
+    """Retroactively score all unscored master resumes in a cohort."""
+    from app.models import Resume, Job as JobModel
+    from app.database import _unwrap_row
+    
+    cohort = db.get_cohort(cohort_id)
+    if not cohort:
+        raise HTTPException(status_code=404, detail="Cohort not found")
+    
+    # Auto-find job if none provided
+    if not job_id:
+        with db.get_session() as jsession:
+            latest_job = jsession.exec(select(JobModel).order_by(JobModel.created_at.desc()).limit(1)).first()
+            if latest_job:
+                job_obj = _unwrap_row(latest_job)
+                job_id = job_obj.job_id
+    
+    if not job_id:
+        return {"status": "error", "message": "No job_id provided and no jobs found in database"}
+    
+    students = db.get_cohort_students_progress(cohort_id)
+    scored = 0
+    failed = 0
+    skipped = 0
+    
+    for s in students:
+        progress = s.get("progress", {})
+        # Skip if already scored or no resume
+        if progress.get("ats_score") is not None:
+            skipped += 1
+            continue
+        if not progress.get("has_resume"):
+            skipped += 1
+            continue
+        
+        user_id = s["user_id"]
+        # Find master resume with processed data
+        with db.get_session() as session:
+            stmt = select(Resume).where(Resume.user_id == user_id, Resume.is_master == True)
+            master_row = session.exec(stmt).first()
+            if not master_row:
+                skipped += 1
+                continue
+            master = _unwrap_row(master_row)
+            if not master.processed_data:
+                skipped += 1
+                continue
+            resume_id = master.resume_id
+            processed_data = master.processed_data
+        
+        try:
+            await score_and_update_resume(resume_id, processed_data, job_id, user_id=user_id)
+            scored += 1
+            logger.info("Rescored resume %s for user %s", resume_id, user_id)
+        except Exception as e:
+            failed += 1
+            logger.error("Failed to rescore %s: %s", resume_id, e)
+    
+    return {
+        "status": "success",
+        "job_id": job_id,
+        "scored": scored,
+        "failed": failed,
+        "skipped": skipped,
+    }
 
 # ─── Stats & Leaderboard ──────────────────────────────────────────────────────
 

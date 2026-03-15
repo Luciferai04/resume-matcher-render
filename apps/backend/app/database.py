@@ -538,6 +538,34 @@ class Database:
 
                 master_obj = _unwrap_row(master) if master else None
 
+                # Get ATS score: prefer master, fallback to best score from any resume
+                effective_ats_score = master_obj.ats_score if master_obj else None
+                effective_ats_breakdown = master_obj.ats_breakdown if master_obj else None
+
+                if effective_ats_score is None and int(total_resumes) > 0:
+                    # Look for the best ATS score across ALL resumes for this user
+                    best_scored_stmt = (
+                        select(Resume)
+                        .where(
+                            Resume.user_id == user.user_id,
+                            Resume.ats_score.isnot(None),
+                        )
+                        .order_by(Resume.ats_score.desc())
+                        .limit(1)
+                    )
+                    best_scored = session.exec(best_scored_stmt).first()
+                    if best_scored:
+                        best_obj = _unwrap_row(best_scored)
+                        effective_ats_score = best_obj.ats_score
+                        effective_ats_breakdown = best_obj.ats_breakdown
+                        # Also propagate score to master resume so future lookups are faster
+                        if master_obj and master_obj.processed_data:
+                            master_obj.ats_score = effective_ats_score
+                            master_obj.ats_breakdown = effective_ats_breakdown
+                            session.add(master_obj)
+                            session.commit()
+                            session.refresh(master_obj)
+
                 # Determine status
                 if not master:
                     status = "not_started"
@@ -545,7 +573,7 @@ class Database:
                     status = "upload_failed"
                 elif master_obj and master_obj.processing_status == "processing":
                     status = "processing"
-                elif master_obj and master_obj.ats_score is not None:
+                elif effective_ats_score is not None:
                     status = "scored"
                 elif tailored_count > 0:
                     status = "improved"
@@ -559,8 +587,8 @@ class Database:
                     "has_resume": master is not None,
                     "resume_filename": master_obj.filename if master_obj else None,
                     "processing_status": master_obj.processing_status if master_obj else None,
-                    "ats_score": master_obj.ats_score if master_obj else None,
-                    "ats_breakdown": master_obj.ats_breakdown if master_obj else None,
+                    "ats_score": effective_ats_score,
+                    "ats_breakdown": effective_ats_breakdown,
                     "total_resumes": int(total_resumes),
                     "tailored_count": int(tailored_count),
                     "job_count": int(job_count),
