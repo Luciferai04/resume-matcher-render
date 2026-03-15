@@ -688,52 +688,42 @@ async def rescore_all_unscored(cohort_id: str, job_id: Optional[str] = None):
                 logger.info("No job provided or found for bulk rescore, using general scoring")
                 job_id = None
     
-    # Get students directly from DB to avoid any complex filtering logic in progress helper
-    from app.models import User
+    # Fetch all master resumes for users in this cohort who don't have an ATS score
+    from app.models import User, Resume
     from app.database import _unwrap_row
     
     with db.get_session() as session:
-        users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
-        students = [_unwrap_row(u) for u in users]
+        stmt = select(Resume).join(User, Resume.user_id == User.user_id).where(
+            User.cohort_id == cohort_id,
+            Resume.is_master == True,
+            Resume.ats_score == None
+        )
+        candidates = session.exec(stmt).all()
+        to_score = [_unwrap_row(c) for c in candidates]
     
     scored = 0
     failed = 0
     skipped = 0
     
-    for s in students:
-        progress = s.get("progress", {})
-        # Skip if already scored or no resume
-        if progress.get("ats_score") is not None:
-            skipped += 1
-            continue
-        if not progress.get("has_resume"):
-            skipped += 1
-            continue
+    logger.info("Found %d unscored resumes to process in cohort %s", len(to_score), cohort_id)
+
+    for master in to_score:
+        resume_id = master.resume_id
+        user_id = master.user_id
+        processed_data = master.processed_data
         
-        user_id = s["user_id"]
-        # Find master resume with processed data
-        with db.get_session() as session:
-            stmt = select(Resume).where(Resume.user_id == user_id, Resume.is_master == True)
-            master_row = session.exec(stmt).first()
-            if not master_row:
-                skipped += 1
+        if not processed_data:
+            logger.info("Resume %s missing processed_data, attempting to parse...", resume_id)
+            try:
+                processed_data = await parse_resume_to_json(master.content)
+                db.update_resume(resume_id, {
+                    "processed_data": processed_data,
+                    "processing_status": "ready"
+                }, user_id=user_id)
+            except Exception as parse_err:
+                logger.error("Failed to parse resume %s during bulk rescore: %s", resume_id, parse_err)
+                failed += 1
                 continue
-            master = _unwrap_row(master_row)
-            resume_id = master.resume_id
-            processed_data = master.processed_data
-            
-            if not processed_data:
-                logger.info("Resume %s missing processed_data, attempting to parse...", resume_id)
-                try:
-                    processed_data = await parse_resume_to_json(master.content)
-                    db.update_resume(resume_id, {
-                        "processed_data": processed_data,
-                        "processing_status": "ready"
-                    }, user_id=user_id)
-                except Exception as parse_err:
-                    logger.error("Failed to parse resume %s during bulk rescore: %s", resume_id, parse_err)
-                    failed += 1
-                    continue
         
         try:
             await score_and_update_resume(resume_id, processed_data, job_id, user_id=user_id)
