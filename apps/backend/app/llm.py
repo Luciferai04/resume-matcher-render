@@ -236,9 +236,19 @@ def get_llm_config() -> LLMConfig:
     """
     stored = _load_stored_config()
 
+    # Auto-correct known broken model names
+    BROKEN_MODEL_MAP = {
+        "gemini-3.1-flash-lite-preview": "gemini-flash-lite-latest",
+        "gemini-flash-latest": "gemini-flash-lite-latest",
+    }
+
+    model = stored.get("model", settings.llm_model)
+    if model in BROKEN_MODEL_MAP:
+        model = BROKEN_MODEL_MAP[model]
+
     return LLMConfig(
         provider=stored.get("provider", settings.llm_provider),
-        model=stored.get("model", settings.llm_model),
+        model=model,
         api_key=stored.get("api_key", settings.llm_api_key),
         api_base=stored.get("api_base", settings.llm_api_base),
     )
