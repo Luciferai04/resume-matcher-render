@@ -33,6 +33,7 @@ type ProcessingStatus = 'pending' | 'processing' | 'ready' | 'failed' | 'loading
 export default function DashboardPage() {
   const { t, locale } = useTranslations();
   const [masterResumeId, setMasterResumeId] = useState<string | null>(null);
+  const [masterResume, setMasterResume] = useState<ResumeListItem | null>(null);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>('loading');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tailoredResumes, setTailoredResumes] = useState<ResumeListItem[]>([]);
@@ -111,10 +112,12 @@ export default function DashboardPage() {
       if (resolvedMasterId) {
         localStorage.setItem('master_resume_id', resolvedMasterId);
         setMasterResumeId(resolvedMasterId);
+        if (masterFromList) setMasterResume(masterFromList);
         checkResumeStatus(resolvedMasterId);
       } else {
         localStorage.removeItem('master_resume_id');
         setMasterResumeId(null);
+        setMasterResume(null);
       }
 
       const filtered = data.filter((r) => r.resume_id !== resolvedMasterId);
@@ -404,24 +407,37 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 border-2 border-black bg-blue-700 text-white flex items-center justify-center">
                   <span className="font-mono font-bold text-lg">M</span>
                 </div>
-                <div className="flex gap-1">
-                  {processingStatus === 'failed' && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700 z-10 rounded-none relative"
-                        onClick={handleRetryProcessing}
-                        disabled={isRetrying}
-                        title={t('dashboard.retryProcessing')}
-                      >
-                        {isRetrying ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex gap-1">
+                    {processingStatus === 'failed' && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-blue-100 hover:text-blue-700 z-10 rounded-none relative"
+                          onClick={handleRetryProcessing}
+                          disabled={isRetrying}
+                          title={t('dashboard.retryProcessing')}
+                        >
+                          {isRetrying ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  {masterResume?.ats_score !== undefined && masterResume?.ats_score !== null && (
+                    <div 
+                      className="font-mono font-bold px-2 py-1 border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-xs"
+                      style={{ 
+                        backgroundColor: masterResume.ats_score >= 75 ? '#dcfce7' : masterResume.ats_score >= 50 ? '#fef3c7' : '#fee2e2',
+                        color: masterResume.ats_score >= 75 ? '#15803d' : masterResume.ats_score >= 50 ? '#b45309' : '#b91c1c'
+                      }}
+                    >
+                      ATS: {masterResume.ats_score}
+                    </div>
                   )}
                 </div>
               </div>
@@ -485,9 +501,22 @@ export default function DashboardPage() {
                   >
                     <span className="font-mono font-bold">{getMonogram(title)}</span>
                   </div>
-                  <span className="font-mono text-xs text-gray-500 uppercase">
-                    {resume.processing_status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="font-mono text-[10px] text-gray-500 uppercase">
+                      {resume.processing_status}
+                    </span>
+                    {resume.ats_score !== undefined && resume.ats_score !== null && (
+                      <div 
+                        className="font-mono font-bold px-1.5 py-0.5 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-[11px]"
+                        style={{ 
+                          backgroundColor: resume.ats_score >= 75 ? '#dcfce7' : resume.ats_score >= 50 ? '#fef3c7' : '#fee2e2',
+                          color: resume.ats_score >= 75 ? '#15803d' : resume.ats_score >= 50 ? '#b45309' : '#b91c1c'
+                        }}
+                      >
+                        ATS: {resume.ats_score}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <CardTitle className="text-lg">
                   <span className="block font-serif text-base font-bold leading-tight mb-1 w-full line-clamp-2">

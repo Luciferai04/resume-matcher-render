@@ -122,6 +122,8 @@ export interface ResumeListItem {
   created_at: string;
   updated_at: string;
   title?: string | null;
+  ats_score?: number | null;
+  ats_breakdown?: Record<string, number> | null;
   // Optional lightweight snippet of associated job description (populated client-side)
   jobSnippet?: string;
 }
