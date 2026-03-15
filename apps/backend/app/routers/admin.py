@@ -178,7 +178,7 @@ async def fix_production_config():
         
         # known broken value
         BROKEN_MODEL = "gemini-3.1-flash-lite-preview"
-        CORRECT_MODEL = "gemini-flash-latest"
+        CORRECT_MODEL = "gemini-flash-lite-latest"
         
         if old_model == BROKEN_MODEL:
             config_info["model"] = CORRECT_MODEL
