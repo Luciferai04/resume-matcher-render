@@ -6,7 +6,7 @@ import { getUserId } from '@/lib/api/auth';
 import { 
     Plus, Upload, FileText, CheckCircle2, AlertCircle, 
     Trophy, Users, Search, ChevronRight, BarChart3, 
-    ArrowLeft, ExternalLink, RefreshCw 
+    ArrowLeft, ExternalLink, RefreshCw, X, Download, PieChart
 } from 'lucide-react';
 
 /* ─── Types ───────────────────────────────────────────────────────────── */
@@ -171,6 +171,9 @@ export default function AdminPage() {
     const [scoringJobId, setScoringJobId] = useState('');
     const [retrying, setRetrying] = useState<Record<string, boolean>>({});
     const [rescoring, setRescoring] = useState(false);
+    const [showReport, setShowReport] = useState(false);
+    const [reportData, setReportData] = useState<any>(null);
+    const [fetchingReport, setFetchingReport] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -305,6 +308,26 @@ export default function AdminPage() {
         } finally {
             setRescoring(false);
         }
+    };
+
+    const fetchReport = async () => {
+        if (!selectedCohort) return;
+        setFetchingReport(true);
+        try {
+            const res = await apiFetch(`/admin/cohorts/${selectedCohort}/report`);
+            const data = await res.json();
+            setReportData(data);
+            setShowReport(true);
+        } catch (err) {
+            console.error('Failed to fetch report:', err);
+            alert('Failed to generate report');
+        } finally {
+            setFetchingReport(false);
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
     };
 
     const handleBulkUpload = async (files: FileList) => {
@@ -555,6 +578,21 @@ export default function AdminPage() {
                                         <BarChart3 size={14} />
                                         {rescoring ? 'Scoring...' : 'Rescore All Unscored'}
                                     </button>
+                                    <button
+                                        onClick={fetchReport}
+                                        disabled={fetchingReport}
+                                        style={{
+                                            ...btnPrimary,
+                                            background: GREEN,
+                                            opacity: fetchingReport ? 0.4 : 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                        }}
+                                    >
+                                        <PieChart size={14} />
+                                        {fetchingReport ? 'Loading...' : 'View Report'}
+                                    </button>
                                     {stats.resumes_scored < stats.resumes_uploaded && (
                                         <span style={{ fontFamily: FONT_MONO, fontSize: '11px', color: ORANGE }}>
                                             {stats.resumes_uploaded - stats.resumes_scored} resumes need scoring
@@ -792,6 +830,28 @@ export default function AdminPage() {
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
+                }
+
+                @media print {
+                    .no-print { display: none !important; }
+                    body { background: white !important; margin: 0; padding: 0; }
+                    .modal-container { 
+                        position: static !important; 
+                        background: white !important; 
+                        padding: 0 !important; 
+                        overflow: visible !important;
+                    }
+                    .report-paper { 
+                        box-shadow: none !important; 
+                        border: none !important; 
+                        width: 100% !important;
+                        max-width: none !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    @page {
+                        margin: 1cm;
+                    }
                 }
             `}</style>
         </div>
