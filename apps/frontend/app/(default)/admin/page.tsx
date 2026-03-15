@@ -821,6 +821,173 @@ export default function AdminPage() {
                 </div>
             </div>
 
+            {/* Executive Report Modal */}
+            {showReport && reportData && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '40px',
+                    overflowY: 'auto',
+                }} className="modal-container">
+                    <div style={{
+                        background: CANVAS,
+                        border: `4px solid ${INK}`,
+                        width: '100%',
+                        maxWidth: '900px',
+                        margin: '0 auto',
+                        minHeight: '100%',
+                        padding: '60px',
+                        boxShadow: '20px 20px 0px rgba(0,0,0,0.5)',
+                        position: 'relative'
+                    }} className="report-paper">
+                        
+                        {/* Modal Header (Hidden in Print) */}
+                        <div style={{ 
+                            position: 'absolute', 
+                            top: '20px', 
+                            right: '20px', 
+                            display: 'flex', 
+                            gap: '12px' 
+                        }} className="no-print">
+                            <button onClick={handlePrint} style={{ ...btnPrimary, background: INK, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Download size={16} /> Download PDF
+                            </button>
+                            <button onClick={() => setShowReport(false)} style={{ ...btnPrimary, background: RED, padding: '8px' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Report Content */}
+                        <div id="executive-report">
+                            <div style={{ borderBottom: `8px solid ${INK}`, paddingBottom: '32px', marginBottom: '40px' }}>
+                                <div style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 800, color: BLUE, textTransform: 'uppercase', marginBottom: '8px' }}>
+                                    Executive Talent Audit // {reportData.cohort?.name}
+                                </div>
+                                <h1 style={{ fontFamily: FONT_MONO, fontSize: '56px', fontWeight: 900, textTransform: 'uppercase', margin: 0, lineHeight: 0.9 }}>
+                                    ATS Journey <br/>Report
+                                </h1>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px', alignItems: 'flex-end' }}>
+                                    <div style={{ fontFamily: FONT_MONO, fontSize: '11px', color: MUTED }}>
+                                        GENERATED: {new Date(reportData.generated_at).toLocaleString()}
+                                    </div>
+                                    <div style={{ fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 800 }}>
+                                        ENGAGEMENT: {reportData.summary.engagement_rate}%
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Funnel Section */}
+                            <div style={{ marginBottom: '60px' }}>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
+                                    01. Placement Funnel
+                                </h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {reportData.funnel.map((f: any, i: number) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                            <div style={{ width: '150px', fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>
+                                                {f.stage}
+                                            </div>
+                                            <div style={{ flex: 1, height: '32px', background: PANEL, border: `2px solid ${INK}`, position: 'relative' }}>
+                                                <div style={{ 
+                                                    height: '100%', 
+                                                    width: `${f.pct}%`, 
+                                                    background: i === 0 ? INK : i === 1 ? BLUE : i === 2 ? VIOLET : GREEN,
+                                                    transition: 'width 1s ease-out'
+                                                }} />
+                                                <div style={{ 
+                                                    position: 'absolute', 
+                                                    right: '12px', 
+                                                    top: '50%', 
+                                                    transform: 'translateY(-50%)', 
+                                                    fontFamily: FONT_MONO, 
+                                                    fontWeight: 900, 
+                                                    fontSize: '12px',
+                                                    color: f.pct > 80 ? '#fff' : INK
+                                                }}>
+                                                    {f.count} ({f.pct}%)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Scores & Growth */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '60px' }}>
+                                <div>
+                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
+                                        02. ATS Benchmarks
+                                    </h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div style={{ borderLeft: `6px solid ${BLUE}`, paddingLeft: '16px' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED }}>AVG INITIAL SCORE</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '32px', fontWeight: 900 }}>{reportData.score_growth.average_initial_score || '—'}</div>
+                                        </div>
+                                        <div style={{ borderLeft: `6px solid ${GREEN}`, paddingLeft: '16px' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED }}>AVG POST-OPTIMIZATION</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '32px', fontWeight: 900 }}>{reportData.score_growth.average_improved_score || '—'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
+                                        03. Distribution
+                                    </h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {Object.entries(reportData.score_growth.score_distribution).map(([key, val]: [string, any]) => (
+                                            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT_MONO, fontSize: '12px', textTransform: 'uppercase', borderBottom: `1px solid ${PANEL}`, paddingBottom: '4px' }}>
+                                                <span style={{ fontWeight: 800 }}>{key.split('_').join(' ')}</span>
+                                                <span style={{ fontWeight: 900 }}>{val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Skill Gaps */}
+                            <div style={{ marginBottom: '60px' }}>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
+                                    04. Critical Skill Gaps
+                                </h2>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                    {reportData.skill_gaps.map((gap: any, i: number) => (
+                                        <div key={i} style={{ padding: '8px 16px', border: `2px solid ${INK}`, background: i < 3 ? '#fee2e2' : PANEL, display: 'flex', gap: '12px', alignItems: 'baseline' }}>
+                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 900, fontSize: '14px' }}>{gap.skill}</span>
+                                            <span style={{ fontFamily: FONT_MONO, fontSize: '10px', color: RED, fontWeight: 800 }}>{gap.students_affected} STUDENTS</span>
+                                        </div>
+                                    ))}
+                                    {reportData.skill_gaps.length === 0 && <div style={{ fontFamily: FONT_MONO, fontSize: '12px', color: MUTED }}>NO SIGNIFICANT GAPS IDENTIFIED</div>}
+                                </div>
+                            </div>
+
+                            {/* Top Performers */}
+                            <div>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
+                                    05. Top Candidates
+                                </h2>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                                    {reportData.top_performers.map((p: any, i: number) => (
+                                        <div key={i} style={{ border: `2px solid ${INK}`, padding: '16px', background: i === 0 ? '#fefce8' : 'white' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', fontWeight: 800, color: MUTED }}>RANK {i + 1}</div>
+                                            <div style={{ fontFamily: FONT_SANS, fontWeight: 800, fontSize: '15px' }}>{p.name}</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '24px', fontWeight: 900, color: GREEN, marginTop: '8px' }}>{p.ats_score}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
                 @keyframes pulse {
                     0% { opacity: 1; }
