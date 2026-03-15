@@ -291,10 +291,17 @@ class Database:
     def get_resume(self, resume_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get resume by ID."""
         with self.get_session() as session:
-            resume = session.get(Resume, resume_id)
-            if resume and user_id and resume.user_id != user_id:
+            resume_obj = session.get(Resume, resume_id)
+            if resume_obj and user_id and resume_obj.user_id != user_id:
                 return None
-            return _to_dict(resume) if resume else None
+            
+            if resume_obj:
+                resume = _unwrap_row(resume_obj)
+                if resume.is_master:
+                    # Apply effective score sync
+                    self._get_effective_score(session, resume.user_id)
+                return _to_dict(resume)
+            return None
 
     def get_master_resume(self, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get the master resume if exists."""
@@ -302,8 +309,13 @@ class Database:
             statement = select(Resume).where(Resume.is_master == True)
             if user_id:
                 statement = statement.where(Resume.user_id == user_id)
-            resume = session.exec(statement).first()
-            return _to_dict(resume) if resume else None
+            resume_obj = session.exec(statement).first()
+            if resume_obj:
+                resume = _unwrap_row(resume_obj)
+                # Apply effective score sync
+                self._get_effective_score(session, resume.user_id)
+                return _to_dict(resume)
+            return None
 
     def update_resume(self, resume_id: str, updates: dict[str, Any], user_id: Optional[str] = None) -> dict[str, Any]:
         """Update resume by ID."""
@@ -340,7 +352,16 @@ class Database:
             if user_id:
                 statement = statement.where(Resume.user_id == user_id)
             resumes = session.exec(statement).all()
-            return [_to_dict(r) for r in resumes]
+            
+            # Sync scores for the master resume in the list
+            results = []
+            for row in resumes:
+                resume = _unwrap_row(row)
+                if resume.is_master:
+                    # Apply effective score sync
+                    self._get_effective_score(session, resume.user_id)
+                results.append(_to_dict(resume))
+            return results
 
     def set_master_resume(self, resume_id: str, user_id: Optional[str] = None) -> bool:
         """Set a resume as the master."""
@@ -506,6 +527,47 @@ class Database:
             # Note: Results might need refreshing if they are to be returned as full dicts
             return [_to_dict(u) for u in results]
 
+    def _get_effective_score(self, session: Session, user_id: str) -> tuple[Optional[int], Optional[dict[str, Any]]]:
+        """Internal helper to find the best ATS score across all resumes for a user."""
+        # Get master resume first
+        master_stmt = select(Resume).where(
+            Resume.user_id == user_id,
+            Resume.is_master == True,
+        )
+        master = session.exec(master_stmt).first()
+        master_obj = _unwrap_row(master) if master else None
+
+        # Prefer master resume's score if it exists
+        effective_ats_score = master_obj.ats_score if master_obj else None
+        effective_ats_breakdown = master_obj.ats_breakdown if master_obj else None
+
+        # Fallback to best score from ANY resume for this user
+        if effective_ats_score is None:
+            best_scored_stmt = (
+                select(Resume)
+                .where(
+                    Resume.user_id == user_id,
+                    Resume.ats_score.isnot(None),
+                )
+                .order_by(Resume.ats_score.desc())
+                .limit(1)
+            )
+            best_scored = session.exec(best_scored_stmt).first()
+            if best_scored:
+                best_obj = _unwrap_row(best_scored)
+                effective_ats_score = best_obj.ats_score
+                effective_ats_breakdown = best_obj.ats_breakdown
+                
+                # Propagate to master if it exists (even if it's not fully parsed/ready)
+                if master_obj:
+                    master_obj.ats_score = effective_ats_score
+                    master_obj.ats_breakdown = effective_ats_breakdown
+                    session.add(master_obj)
+                    session.commit()
+                    session.refresh(master_obj)
+
+        return effective_ats_score, effective_ats_breakdown
+
     def get_cohort_students_progress(self, cohort_id: str) -> list[dict[str, Any]]:
         """Get all students in a cohort with their resume progress and ATS scores."""
         with self.get_session() as session:
@@ -538,33 +600,8 @@ class Database:
 
                 master_obj = _unwrap_row(master) if master else None
 
-                # Get ATS score: prefer master, fallback to best score from any resume
-                effective_ats_score = master_obj.ats_score if master_obj else None
-                effective_ats_breakdown = master_obj.ats_breakdown if master_obj else None
-
-                if effective_ats_score is None and int(total_resumes) > 0:
-                    # Look for the best ATS score across ALL resumes for this user
-                    best_scored_stmt = (
-                        select(Resume)
-                        .where(
-                            Resume.user_id == user.user_id,
-                            Resume.ats_score.isnot(None),
-                        )
-                        .order_by(Resume.ats_score.desc())
-                        .limit(1)
-                    )
-                    best_scored = session.exec(best_scored_stmt).first()
-                    if best_scored:
-                        best_obj = _unwrap_row(best_scored)
-                        effective_ats_score = best_obj.ats_score
-                        effective_ats_breakdown = best_obj.ats_breakdown
-                        # Also propagate score to master resume so future lookups are faster
-                        if master_obj and master_obj.processed_data:
-                            master_obj.ats_score = effective_ats_score
-                            master_obj.ats_breakdown = effective_ats_breakdown
-                            session.add(master_obj)
-                            session.commit()
-                            session.refresh(master_obj)
+                # Get ATS score: use consistent shared fallback logic
+                effective_ats_score, effective_ats_breakdown = self._get_effective_score(session, user.user_id)
 
                 # Determine status
                 if not master:
