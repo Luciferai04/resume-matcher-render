@@ -6,7 +6,7 @@ import { getUserId } from '@/lib/api/auth';
 import { 
     Plus, Upload, FileText, CheckCircle2, AlertCircle, 
     Trophy, Users, Search, ChevronRight, BarChart3, 
-    ArrowLeft, ExternalLink, RefreshCw, X, Download, PieChart
+    ArrowLeft, ExternalLink, RefreshCw, X, Download, PieChart, Trash2
 } from 'lucide-react';
 
 /* ─── Types ───────────────────────────────────────────────────────────── */
@@ -174,6 +174,8 @@ export default function AdminPage() {
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<any>(null);
     const [fetchingReport, setFetchingReport] = useState(false);
+    const [deleting, setDeleting] = useState<string | null>(null);
+    const [deletingUser, setDeletingUser] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -254,6 +256,48 @@ export default function AdminPage() {
             alert(`Error: ${err.message || 'Failed to connect to backend'}`);
         }
         finally { setCreating(false); }
+    };
+
+    const handleDeleteCohort = async (cohortId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this cohort? This will remove all students and their resumes.')) return;
+        
+        setDeleting(cohortId);
+        try {
+            const res = await apiFetch(`/admin/cohorts/${cohortId}`, { method: 'DELETE' });
+            if (res.ok) {
+                setCohorts(prev => prev.filter(c => c.cohort_id !== cohortId));
+                if (selectedCohort === cohortId) {
+                    setSelectedCohort(null);
+                    setStudents([]);
+                    setStats(null);
+                }
+            } else {
+                alert('Failed to delete cohort');
+            }
+        } catch (err) {
+            console.error('Delete cohort error:', err);
+        } finally {
+            setDeleting(null);
+        }
+    };
+
+    const handleDeleteStudentResume = async (userId: string) => {
+        if (!confirm('Are you sure you want to delete all resumes and scores for this student?')) return;
+        
+        setDeletingUser(userId);
+        try {
+            const res = await apiFetch(`/admin/students/${userId}/resume`, { method: 'DELETE' });
+            if (res.ok) {
+                if (selectedCohort) fetchCohortData(selectedCohort, true);
+            } else {
+                alert('Failed to delete student data');
+            }
+        } catch (err) {
+            console.error('Delete student error:', err);
+        } finally {
+            setDeletingUser(null);
+        }
     };
 
     const handleAddStudents = async () => {
@@ -472,25 +516,45 @@ export default function AdminPage() {
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                             {cohorts.map(c => (
-                                <button
-                                    key={c.cohort_id}
-                                    onClick={() => setSelectedCohort(c.cohort_id)}
-                                    style={{
-                                        fontFamily: FONT_MONO,
-                                        fontSize: '13px',
-                                        textAlign: 'left',
-                                        padding: '12px 16px',
-                                        background: selectedCohort === c.cohort_id ? INK : 'transparent',
-                                        color: selectedCohort === c.cohort_id ? CANVAS : INK,
-                                        border: `2px solid ${INK}`,
-                                        cursor: 'pointer',
-                                        textTransform: 'uppercase',
-                                        fontWeight: 700,
-                                        transition: 'all 0.1s ease',
-                                    }}
-                                >
-                                    {c.name}
-                                </button>
+                                <div key={c.cohort_id} style={{ position: 'relative', display: 'flex', gap: '4px' }}>
+                                    <button
+                                        onClick={() => setSelectedCohort(c.cohort_id)}
+                                        style={{
+                                            fontFamily: FONT_MONO,
+                                            fontSize: '13px',
+                                            textAlign: 'left',
+                                            padding: '12px 16px',
+                                            background: selectedCohort === c.cohort_id ? INK : 'transparent',
+                                            color: selectedCohort === c.cohort_id ? CANVAS : INK,
+                                            border: `2px solid ${INK}`,
+                                            cursor: 'pointer',
+                                            textTransform: 'uppercase',
+                                            fontWeight: 700,
+                                            transition: 'all 0.1s ease',
+                                            flex: 1,
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        {c.name}
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDeleteCohort(c.cohort_id, e)}
+                                        disabled={deleting === c.cohort_id}
+                                        style={{
+                                            padding: '8px',
+                                            background: CANVAS,
+                                            border: `2px solid ${INK}`,
+                                            color: RED,
+                                            cursor: 'pointer',
+                                            opacity: deleting === c.cohort_id ? 0.4 : 1,
+                                        }}
+                                        title="Delete Cohort"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             ))}
                         </div>
 
@@ -745,6 +809,25 @@ export default function AdminPage() {
                                                                     <RefreshCw size={12} style={{ animation: retrying[s.user_id] ? 'spin 1.5s linear infinite' : 'none' }} />
                                                                 </button>
                                                             )}
+                                                            {s.progress.has_resume && (
+                                                                <button
+                                                                    onClick={() => handleDeleteStudentResume(s.user_id)}
+                                                                    disabled={deletingUser === s.user_id}
+                                                                    title="Delete student resumes & scores"
+                                                                    style={{
+                                                                        padding: '2px',
+                                                                        background: PANEL,
+                                                                        border: `1px solid ${INK}`,
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        color: RED,
+                                                                        opacity: deletingUser === s.user_id ? 0.3 : 1
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                         {s.progress.error && (
                                                             <div style={{ fontFamily: FONT_SANS, fontSize: '9px', color: RED, marginTop: '4px', maxWidth: '150px' }}>
@@ -829,89 +912,176 @@ export default function AdminPage() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: 'rgba(0,0,0,0.8)',
+                    background: 'rgba(0,0,0,0.95)',
                     zIndex: 1000,
                     display: 'flex',
                     flexDirection: 'column',
-                    padding: '40px',
+                    padding: '24px',
                     overflowY: 'auto',
                 }} className="modal-container">
+                    
+                    {/* Floating Controls (Hidden in Print) */}
+                    <div style={{ 
+                        position: 'sticky', 
+                        top: '0', 
+                        alignSelf: 'center',
+                        zIndex: 1001,
+                        display: 'flex', 
+                        gap: '8px',
+                        marginBottom: '20px',
+                        background: INK,
+                        padding: '12px 24px',
+                        border: `2px solid ${INK}`,
+                        boxShadow: '8px 8px 0px rgba(0,0,0,0.3)'
+                    }} className="no-print">
+                        <button onClick={handlePrint} style={{ ...btnPrimary, background: CANVAS, color: INK, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                            <Download size={14} /> DOWNLOAD OFFICIAL PDF
+                        </button>
+                        <button onClick={() => setShowReport(false)} style={{ ...btnPrimary, background: RED, color: CANVAS, padding: '8px', border: 'none' }}>
+                            <X size={18} />
+                        </button>
+                    </div>
+
                     <div style={{
                         background: CANVAS,
-                        border: `4px solid ${INK}`,
+                        border: `2px solid ${INK}`,
                         width: '100%',
-                        maxWidth: '900px',
-                        margin: '0 auto',
-                        minHeight: '100%',
-                        padding: '60px',
-                        boxShadow: '20px 20px 0px rgba(0,0,0,0.5)',
-                        position: 'relative'
+                        maxWidth: '960px',
+                        margin: '0 auto 60px auto',
+                        minHeight: '1414px', // A4 Ratio approximation
+                        padding: '80px',
+                        position: 'relative',
+                        boxShadow: '30px 30px 0px rgba(0,0,0,0.4)',
+                        color: INK
                     }} className="report-paper">
                         
-                        {/* Modal Header (Hidden in Print) */}
-                        <div style={{ 
-                            position: 'absolute', 
-                            top: '20px', 
-                            right: '20px', 
-                            display: 'flex', 
-                            gap: '12px' 
-                        }} className="no-print">
-                            <button onClick={handlePrint} style={{ ...btnPrimary, background: INK, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Download size={16} /> Download PDF
-                            </button>
-                            <button onClick={() => setShowReport(false)} style={{ ...btnPrimary, background: RED, padding: '8px' }}>
-                                <X size={20} />
-                            </button>
+                        {/* Watermark / Context */}
+                        <div style={{ position: 'absolute', top: '24px', left: '24px', fontFamily: FONT_MONO, fontSize: '9px', opacity: 0.3, textTransform: 'uppercase', letterSpacing: '0.2em' }}>
+                            OFFICIAL AUDIT // RESUME MATCHER // {new Date().getFullYear()}
                         </div>
 
                         {/* Report Content */}
                         <div id="executive-report">
-                            <div style={{ borderBottom: `8px solid ${INK}`, paddingBottom: '32px', marginBottom: '40px' }}>
-                                <div style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 800, color: BLUE, textTransform: 'uppercase', marginBottom: '8px' }}>
-                                    Executive Talent Audit // {reportData.cohort?.name}
-                                </div>
-                                <h1 style={{ fontFamily: FONT_MONO, fontSize: '56px', fontWeight: 900, textTransform: 'uppercase', margin: 0, lineHeight: 0.9 }}>
-                                    ATS Journey <br/>Report
-                                </h1>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px', alignItems: 'flex-end' }}>
-                                    <div style={{ fontFamily: FONT_MONO, fontSize: '11px', color: MUTED }}>
-                                        GENERATED: {new Date(reportData.generated_at).toLocaleString()}
+                            <div style={{ borderBottom: `12px solid ${INK}`, paddingBottom: '40px', marginBottom: '60px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 800, color: BLUE, textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>
+                                            // {reportData.cohort?.name} Report
+                                        </div>
+                                        <h1 style={{ fontFamily: FONT_MONO, fontSize: '72px', fontWeight: 900, textTransform: 'uppercase', margin: 0, lineHeight: 0.85, letterSpacing: '-0.02em' }}>
+                                            TALENT<br/>AUDIT
+                                        </h1>
                                     </div>
-                                    <div style={{ fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 800 }}>
-                                        ENGAGEMENT: {reportData.summary.engagement_rate}%
+                                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ fontFamily: FONT_MONO, fontSize: '48px', fontWeight: 900, lineHeight: 1 }}>{reportData.summary.engagement_rate}%</div>
+                                        <div style={{ fontFamily: FONT_MONO, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Engagement Rate</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '48px', alignItems: 'flex-end' }}>
+                                    <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, textTransform: 'uppercase' }}>
+                                        ID: {reportData.cohort?.cohort_id}<br/>
+                                        TIMESTAMP: {new Date(reportData.generated_at).toLocaleString()}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '32px' }}>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 900 }}>{reportData.summary.total_students}</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '8px', color: MUTED, textTransform: 'uppercase' }}>Total Cohort</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 900 }}>{reportData.summary.completion_rate}%</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '8px', color: MUTED, textTransform: 'uppercase' }}>Success Rate</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Funnel Section */}
-                            <div style={{ marginBottom: '60px' }}>
-                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
-                                    01. Placement Funnel
+                            {/* Section 01: Funnel */}
+                            <div style={{ marginBottom: '80px' }}>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `4px solid ${INK}`, paddingBottom: '12px', marginBottom: '32px' }}>
+                                    01. Talent Pipeline Funnel
                                 </h2>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {reportData.funnel.map((f: any, i: number) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                            <div style={{ width: '150px', fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>
-                                                {f.stage}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {reportData.funnel.map((f: any, i: number) => {
+                                        const colors = [INK, BLUE, VIOLET, GREEN];
+                                        return (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                                <div style={{ width: '180px', fontFamily: FONT_MONO, fontSize: '13px', fontWeight: 800, textTransform: 'uppercase' }}>
+                                                    {f.stage}
+                                                </div>
+                                                <div style={{ flex: 1, height: '40px', background: PANEL, border: `2px solid ${INK}`, position: 'relative' }}>
+                                                    <div style={{ 
+                                                        height: '100%', 
+                                                        width: `${f.pct}%`, 
+                                                        background: colors[i] || INK,
+                                                        transition: 'width 1.5s cubic-bezier(0.16, 1, 0.3, 1)'
+                                                    }} />
+                                                    <div style={{ 
+                                                        position: 'absolute', 
+                                                        right: '16px', 
+                                                        top: '50%', 
+                                                        transform: 'translateY(-50%)', 
+                                                        fontFamily: FONT_MONO, 
+                                                        fontWeight: 900, 
+                                                        fontSize: '14px',
+                                                        color: f.pct > 80 ? CANVAS : INK,
+                                                        mixBlendMode: 'difference'
+                                                    }}>
+                                                        {f.count} ({f.pct}%)
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style={{ flex: 1, height: '32px', background: PANEL, border: `2px solid ${INK}`, position: 'relative' }}>
-                                                <div style={{ 
-                                                    height: '100%', 
-                                                    width: `${f.pct}%`, 
-                                                    background: i === 0 ? INK : i === 1 ? BLUE : i === 2 ? VIOLET : GREEN,
-                                                    transition: 'width 1s ease-out'
-                                                }} />
-                                                <div style={{ 
-                                                    position: 'absolute', 
-                                                    right: '12px', 
-                                                    top: '50%', 
-                                                    transform: 'translateY(-50%)', 
-                                                    fontFamily: FONT_MONO, 
-                                                    fontWeight: 900, 
-                                                    fontSize: '12px',
-                                                    color: f.pct > 80 ? '#fff' : INK
-                                                }}>
-                                                    {f.count} ({f.pct}%)
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Section 02: Benchmarks */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '60px', marginBottom: '80px' }}>
+                                <div>
+                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `4px solid ${INK}`, paddingBottom: '12px', marginBottom: '32px' }}>
+                                        02. ATS Evolution
+                                    </h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        <div style={{ borderLeft: `8px solid ${BLUE}`, paddingLeft: '20px' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '11px', color: MUTED, marginBottom: '8px' }}>AVERAGE INITIAL SCORE</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '42px', fontWeight: 900, lineHeight: 1 }}>{reportData.score_growth.average_initial_score || '—'}</div>
+                                        </div>
+                                        <div style={{ borderLeft: `8px solid ${GREEN}`, paddingLeft: '20px' }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '11px', color: MUTED, marginBottom: '8px' }}>AVERAGE OPTIMIZED SCORE</div>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '42px', fontWeight: 900, lineHeight: 1 }}>{reportData.score_growth.average_improved_score || '—'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `4px solid ${INK}`, paddingBottom: '12px', marginBottom: '32px' }}>
+                                        03. Skill Coverage
+                                    </h2>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                        {reportData.skill_gaps.map((gap: any, i: number) => (
+                                            <div key={i} style={{ padding: '12px', border: `2px solid ${INK}`, background: i < 2 ? '#fee2e2' : CANVAS }}>
+                                                <div style={{ fontFamily: FONT_MONO, fontWeight: 900, fontSize: '12px', textTransform: 'uppercase' }}>{gap.skill}</div>
+                                                <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: RED, fontWeight: 800, marginTop: '4px' }}>GAP: {gap.students_affected} STUDENTS</div>
+                                            </div>
+                                        ))}
+                                        {reportData.skill_gaps.length === 0 && <div style={{ fontFamily: FONT_MONO, fontSize: '12px', color: MUTED }}>NO SIGNIFICANT GAPS IDENTIFIED</div>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 04: TOP PERFORMERS */}
+                            <div style={{ marginBottom: '80px', pageBreakBefore: 'always' }}>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `4px solid ${INK}`, paddingBottom: '12px', marginBottom: '32px' }}>
+                                    04. Top Performing Candidates
+                                </h2>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+                                    {reportData.top_performers.slice(0, 10).map((p: any, i: number) => (
+                                        <div key={i} style={{ border: `2px solid ${INK}`, padding: '16px', background: CANVAS }}>
+                                            <div style={{ fontFamily: FONT_MONO, fontSize: '9px', fontWeight: 800, color: MUTED }}>RANK {i + 1}</div>
+                                            <div style={{ fontFamily: FONT_SANS, fontWeight: 800, fontSize: '14px', margin: '8px 0', minHeight: '34px', lineHeight: 1.2 }}>{p.name}</div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${PANEL}`, paddingTop: '8px' }}>
+                                                <span style={{ fontFamily: FONT_MONO, fontSize: '20px', fontWeight: 900, color: GREEN }}>{p.ats_score}</span>
+                                                <div style={{ padding: '4px', background: INK, color: CANVAS, borderRadius: '4px', fontSize: '10px' }}>
+                                                    <Trophy size={10} />
                                                 </div>
                                             </div>
                                         </div>
@@ -919,67 +1089,52 @@ export default function AdminPage() {
                                 </div>
                             </div>
 
-                            {/* Scores & Growth */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '60px' }}>
-                                <div>
-                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
-                                        02. ATS Benchmarks
-                                    </h2>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        <div style={{ borderLeft: `6px solid ${BLUE}`, paddingLeft: '16px' }}>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED }}>AVG INITIAL SCORE</div>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '32px', fontWeight: 900 }}>{reportData.score_growth.average_initial_score || '—'}</div>
-                                        </div>
-                                        <div style={{ borderLeft: `6px solid ${GREEN}`, paddingLeft: '16px' }}>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED }}>AVG POST-OPTIMIZATION</div>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '32px', fontWeight: 900 }}>{reportData.score_growth.average_improved_score || '—'}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
-                                        03. Distribution
-                                    </h2>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {Object.entries(reportData.score_growth.score_distribution).map(([key, val]: [string, any]) => (
-                                            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT_MONO, fontSize: '12px', textTransform: 'uppercase', borderBottom: `1px solid ${PANEL}`, paddingBottom: '4px' }}>
-                                                <span style={{ fontWeight: 800 }}>{key.split('_').join(' ')}</span>
-                                                <span style={{ fontWeight: 900 }}>{val}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                            {/* Section 05: FULL STUDENT DIRECTORY & JOURNEY */}
+                            <div style={{ pageBreakBefore: 'always' }}>
+                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `4px solid ${INK}`, paddingBottom: '12px', marginBottom: '32px' }}>
+                                    05. Comprehensive Journey Log
+                                </h2>
+                                <div style={{ border: `2px solid ${INK}` }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ background: INK, color: CANVAS }}>
+                                                <th style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase' }}>Student Name</th>
+                                                <th style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase' }}>Email</th>
+                                                <th style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase' }}>Journey Status</th>
+                                                <th style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase', textAlign: 'right' }}>ATS Score</th>
+                                                <th style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', textTransform: 'uppercase', textAlign: 'right' }}>Improvements</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportData.all_students.map((s: any, idx: number) => (
+                                                <tr key={idx} style={{ borderBottom: `1px solid ${PANEL}`, background: idx % 2 === 0 ? CANVAS : '#f9f9f9' }}>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_SANS, fontWeight: 700, fontSize: '13px' }}>{s.name}</td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', color: MUTED }}>{s.email || '—'}</td>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {s.status === 'ready' ? <CheckCircle2 size={12} color={GREEN} /> : s.status === 'processing' ? <RefreshCw size={12} color={BLUE} className="spin" /> : <X size={12} color={MUTED} />}
+                                                            <span style={{ fontFamily: FONT_MONO, fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
+                                                                {s.status.replace('_', ' ')}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 900, textAlign: 'right', color: s.ats_score ? (s.ats_score >= 75 ? GREEN : s.ats_score >= 50 ? ORANGE : RED) : MUTED }}>
+                                                        {s.ats_score ?? '—'}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', fontWeight: 800, textAlign: 'right' }}>
+                                                        {s.tailored_count} tailored
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-
-                            {/* Skill Gaps */}
-                            <div style={{ marginBottom: '60px' }}>
-                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
-                                    04. Critical Skill Gaps
-                                </h2>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                    {reportData.skill_gaps.map((gap: any, i: number) => (
-                                        <div key={i} style={{ padding: '8px 16px', border: `2px solid ${INK}`, background: i < 3 ? '#fee2e2' : PANEL, display: 'flex', gap: '12px', alignItems: 'baseline' }}>
-                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 900, fontSize: '14px' }}>{gap.skill}</span>
-                                            <span style={{ fontFamily: FONT_MONO, fontSize: '10px', color: RED, fontWeight: 800 }}>{gap.students_affected} STUDENTS</span>
-                                        </div>
-                                    ))}
-                                    {reportData.skill_gaps.length === 0 && <div style={{ fontFamily: FONT_MONO, fontSize: '12px', color: MUTED }}>NO SIGNIFICANT GAPS IDENTIFIED</div>}
-                                </div>
-                            </div>
-
-                            {/* Top Performers */}
-                            <div>
-                                <h2 style={{ fontFamily: FONT_MONO, fontSize: '18px', fontWeight: 900, textTransform: 'uppercase', borderBottom: `2px solid ${INK}`, paddingBottom: '8px', marginBottom: '24px' }}>
-                                    05. Top Candidates
-                                </h2>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-                                    {reportData.top_performers.map((p: any, i: number) => (
-                                        <div key={i} style={{ border: `2px solid ${INK}`, padding: '16px', background: i === 0 ? '#fefce8' : 'white' }}>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '10px', fontWeight: 800, color: MUTED }}>RANK {i + 1}</div>
-                                            <div style={{ fontFamily: FONT_SANS, fontWeight: 800, fontSize: '15px' }}>{p.name}</div>
-                                            <div style={{ fontFamily: FONT_MONO, fontSize: '24px', fontWeight: 900, color: GREEN, marginTop: '8px' }}>{p.ats_score}</div>
-                                        </div>
-                                    ))}
+                            
+                            {/* Footer for PDF */}
+                            <div style={{ marginTop: '80px', borderTop: `1px solid ${PANEL}`, paddingTop: '24px', textAlign: 'center' }}>
+                                <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    End of Official Report // Page 01 of 01 // Generated by Resume Matcher AI
                                 </div>
                             </div>
                         </div>
@@ -1001,12 +1156,25 @@ export default function AdminPage() {
 
                 @media print {
                     .no-print { display: none !important; }
-                    body { background: white !important; margin: 0; padding: 0; }
+                    html, body { 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: white !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
                     .modal-container { 
-                        position: static !important; 
+                        position: absolute !important; 
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
                         background: white !important; 
                         padding: 0 !important; 
+                        margin: 0 !important;
                         overflow: visible !important;
+                        display: block !important;
+                        z-index: 9999 !important;
                     }
                     .report-paper { 
                         box-shadow: none !important; 
@@ -1014,10 +1182,22 @@ export default function AdminPage() {
                         width: 100% !important;
                         max-width: none !important;
                         margin: 0 !important;
-                        padding: 0 !important;
+                        padding: 1.5cm !important;
+                        background: white !important;
+                        min-height: 0 !important;
+                    }
+                    table { page-break-inside: auto; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    thead { display: table-header-group; }
+                    tfoot { display: table-footer-group; }
+                    
+                    /* Hide everything else during print */
+                    body > :not(.modal-container) {
+                        display: none !important;
                     }
                     @page {
-                        margin: 1cm;
+                        margin: 0;
+                        size: A4 portrait;
                     }
                 }
             `}</style>

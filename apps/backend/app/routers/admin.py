@@ -305,6 +305,15 @@ async def get_cohort(cohort_id: str):
     return cohort
 
 
+@router.delete("/cohorts/{cohort_id}")
+async def delete_cohort_endpoint(cohort_id: str):
+    """Delete a cohort and all its associated data."""
+    success = db.delete_cohort(cohort_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Cohort not found")
+    return {"message": "Cohort and all associated data deleted successfully"}
+
+
 # ─── Student Management ───────────────────────────────────────────────────────
 
 @router.post("/cohorts/{cohort_id}/students")
@@ -331,6 +340,15 @@ async def get_students_progress(cohort_id: str):
 
     students = db.get_cohort_students_progress(cohort_id)
     return {"cohort": cohort, "students": students}
+
+
+@router.delete("/students/{user_id}/resume")
+async def delete_student_resume_endpoint(user_id: str):
+    """Delete all resume and job data for a specific student."""
+    success = db.delete_user_data(user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Student data not found or could not be deleted")
+    return {"message": "Student resumes and jobs deleted successfully"}
 
 
 # ─── Bulk Resume Upload ───────────────────────────────────────────────────────
@@ -875,34 +893,43 @@ async def get_executive_report(cohort_id: str):
         },
     }
 
-    # ── Top Performers ──
-    scored_students = [
-        {
+    # ── Journey Details for ALL Students ──
+    all_students_journey = []
+    for s in students:
+        prog = s.get("progress", {})
+        all_students_journey.append({
             "name": s["name"],
             "user_id": s["user_id"],
-            "ats_score": s["progress"]["ats_score"],
-            "tailored_count": s["progress"].get("tailored_count", 0),
-            "status": s["progress"].get("status", "not_started"),
-        }
-        for s in students
-        if s.get("progress", {}).get("ats_score") is not None
-    ]
-    scored_students.sort(key=lambda x: x["ats_score"] or 0, reverse=True)
-    top_performers = scored_students[:10]
+            "email": s.get("email"),
+            "status": prog.get("status", "not_started"),
+            "ats_score": prog.get("ats_score"),
+            "tailored_count": prog.get("tailored_count", 0),
+            "last_updated": prog.get("updated_at"),
+        })
+    
+    # Sort journey: Scored first (desc), then processing, then not started
+    def journey_sort(x):
+        status = x["status"]
+        if status == "ready": return (0, -(x["ats_score"] or 0))
+        if status == "processing": return (1, 0)
+        return (2, 0)
+    
+    all_students_journey.sort(key=journey_sort)
 
-    # ── Skill Gaps (from ATS breakdown if available) ──
+    # ── Top Performers ──
+    top_performers = [s for s in all_students_journey if s["ats_score"] is not None]
+    top_performers = sorted(top_performers, key=lambda x: x["ats_score"], reverse=True)[:10]
+
+    # ── Skill Gaps (Enhanced) ──
     skill_gap_counts: dict[str, int] = {}
     for s in students:
-        progress = s.get("progress", {})
-        breakdown = progress.get("ats_breakdown")
+        breakdown = s.get("progress", {}).get("ats_breakdown")
         if breakdown and isinstance(breakdown, dict):
-            # Look for common ATS breakdown keys with low scores
             for key, value in breakdown.items():
                 if isinstance(value, (int, float)) and value < 60:
                     readable_key = key.replace("_", " ").title()
                     skill_gap_counts[readable_key] = skill_gap_counts.get(readable_key, 0) + 1
 
-    # Sort skill gaps by frequency
     skill_gaps = [
         {"skill": k, "students_affected": v}
         for k, v in sorted(skill_gap_counts.items(), key=lambda x: x[1], reverse=True)
@@ -919,6 +946,6 @@ async def get_executive_report(cohort_id: str):
         "funnel": funnel,
         "score_growth": score_growth,
         "top_performers": top_performers,
-        "all_results": scored_students,
+        "all_students": all_students_journey,
         "skill_gaps": skill_gaps,
     }

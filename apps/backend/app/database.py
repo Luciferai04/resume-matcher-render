@@ -645,12 +645,60 @@ class Database:
             session.exec(delete(Cohort))
             session.commit()
 
-        uploads_dir = settings.data_dir / "uploads"
-        if uploads_dir.exists():
-            import shutil
+    def delete_cohort(self, cohort_id: str) -> bool:
+        """Delete a cohort and all associated data (users, resumes, jobs, improvements)."""
+        with self.get_session() as session:
+            cohort = session.get(Cohort, cohort_id)
+            if not cohort:
+                return False
+            
+            # Find all users in this cohort
+            users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
+            for u in users:
+                user = _unwrap_row(u)
+                self.delete_user_data(user.user_id, session=session)
+                session.delete(user)
+            
+            session.delete(cohort)
+            session.commit()
+            return True
 
-            shutil.rmtree(uploads_dir)
-            uploads_dir.mkdir(parents=True, exist_ok=True)
+    def delete_user_data(self, user_id: str, session: Optional[Session] = None) -> bool:
+        """Delete all resume and job data for a user."""
+        should_commit = False
+        if session is None:
+            session = self.get_session()
+            should_commit = True
+        
+        try:
+            # Delete jobs
+            session.exec(delete(Job).where(Job.user_id == user_id))
+            
+            # Delete improvements associated with resumes
+            # Improvements don't have user_id, but they reference resume_ids
+            resumes = session.exec(select(Resume).where(Resume.user_id == user_id)).all()
+            resume_ids = [r.resume_id for r in resumes]
+            if resume_ids:
+                session.exec(delete(Improvement).where(Improvement.original_resume_id.in_(resume_ids)))
+                session.exec(delete(Improvement).where(Improvement.tailored_resume_id.in_(resume_ids)))
+            
+            # Delete resumes
+            session.exec(delete(Resume).where(Resume.user_id == user_id))
+            
+            if should_commit:
+                session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting user data: {e}")
+            if should_commit:
+                session.rollback()
+            return False
+        finally:
+            if should_commit:
+                session.close()
+
+    def reset_database_files(self) -> None:
+        """Clean up uploaded files."""
 
 
 # Global database instance
