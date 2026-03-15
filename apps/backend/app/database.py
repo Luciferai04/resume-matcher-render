@@ -648,50 +648,65 @@ class Database:
     def delete_cohort(self, cohort_id: str) -> bool:
         """Delete a cohort and all associated data (users, resumes, jobs, improvements)."""
         with self.get_session() as session:
-            cohort = session.get(Cohort, cohort_id)
-            if not cohort:
+            cohort_obj = session.get(Cohort, cohort_id)
+            if not cohort_obj:
                 return False
+            
+            cohort = _unwrap_row(cohort_obj)
             
             # Find all users in this cohort
             users = session.exec(select(User).where(User.cohort_id == cohort_id)).all()
             for u in users:
                 user = _unwrap_row(u)
+                # Propagate exceptions upwards here
                 self.delete_user_data(user.user_id, session=session)
-                session.delete(user)
+                session.delete(user) # Delete the unwrapped object
             
-            session.delete(cohort)
+            session.delete(cohort_obj)
             session.commit()
             return True
 
     def delete_user_data(self, user_id: str, session: Optional[Session] = None) -> bool:
-        """Delete all resume and job data for a user."""
+        """Delete all resume and job data for a user.
+        
+        If session is provided, caller must commit. Otherwise, this method commits.
+        """
         should_commit = False
         if session is None:
             session = self.get_session()
             should_commit = True
         
         try:
-            # Delete jobs
+            # 1. Delete jobs
             session.exec(delete(Job).where(Job.user_id == user_id))
             
-            # Delete improvements associated with resumes
-            # Improvements don't have user_id, but they reference resume_ids
-            resumes = session.exec(select(Resume).where(Resume.user_id == user_id)).all()
-            resume_ids = [r.resume_id for r in resumes]
+            # 2. Delete improvements associated with resumes
+            # Improvements reference resume_ids
+            resumes_results = session.exec(select(Resume).where(Resume.user_id == user_id)).all()
+            resume_ids = []
+            for r in resumes_results:
+                obj = _unwrap_row(r)
+                if obj and hasattr(obj, 'resume_id'):
+                    resume_ids.append(obj.resume_id)
+            
             if resume_ids:
+                # Use SQLModel/SQLAlchemy delete with in_
                 session.exec(delete(Improvement).where(Improvement.original_resume_id.in_(resume_ids)))
                 session.exec(delete(Improvement).where(Improvement.tailored_resume_id.in_(resume_ids)))
             
-            # Delete resumes
+            # 3. Delete resumes
             session.exec(delete(Resume).where(Resume.user_id == user_id))
             
             if should_commit:
                 session.commit()
             return True
         except Exception as e:
-            logger.error(f"Error deleting user data: {e}")
+            logger.error("Failed to delete user data for %s: %s", user_id, str(e))
             if should_commit:
                 session.rollback()
+            # Re-raise if part of a parent transaction to avoid 'aborted' state issues
+            if not should_commit:
+                raise
             return False
         finally:
             if should_commit:
