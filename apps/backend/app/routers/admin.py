@@ -712,11 +712,21 @@ async def rescore_all_unscored(cohort_id: str, job_id: Optional[str] = None):
                 skipped += 1
                 continue
             master = _unwrap_row(master_row)
-            if not master.processed_data:
-                skipped += 1
-                continue
             resume_id = master.resume_id
             processed_data = master.processed_data
+            
+            if not processed_data:
+                logger.info("Resume %s missing processed_data, attempting to parse...", resume_id)
+                try:
+                    processed_data = await parse_resume_to_json(master.content)
+                    db.update_resume(resume_id, {
+                        "processed_data": processed_data,
+                        "processing_status": "ready"
+                    }, user_id=user_id)
+                except Exception as parse_err:
+                    logger.error("Failed to parse resume %s during bulk rescore: %s", resume_id, parse_err)
+                    failed += 1
+                    continue
         
         try:
             await score_and_update_resume(resume_id, processed_data, job_id, user_id=user_id)
