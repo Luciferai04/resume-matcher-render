@@ -482,7 +482,8 @@ export default function AdminPage() {
 
     return (
         <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
-            {/* Header */}
+            <div className="dashboard-content">
+                {/* Header */}
             <header style={{ marginBottom: '48px', borderBottom: `4px solid ${INK}`, paddingBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
                     <h1 style={{ fontFamily: FONT_MONO, fontSize: '48px', fontWeight: 900, textTransform: 'uppercase', color: INK, margin: 0, letterSpacing: '-0.02em' }}>
@@ -903,6 +904,7 @@ export default function AdminPage() {
                     )}
                 </div>
             </div>
+            </div> {/* End dashboard-content */}
 
             {/* Executive Report Modal */}
             {showReport && reportData && (
@@ -1155,7 +1157,7 @@ export default function AdminPage() {
                 }
 
                 @media print {
-                    .no-print { display: none !important; }
+                    .no-print, .dashboard-content { display: none !important; }
                     html, body { 
                         margin: 0 !important; 
                         padding: 0 !important; 
@@ -1182,7 +1184,7 @@ export default function AdminPage() {
                         width: 100% !important;
                         max-width: none !important;
                         margin: 0 !important;
-                        padding: 1.5cm !important;
+                        padding: 1cm !important;
                         background: white !important;
                         min-height: 0 !important;
                     }
@@ -1191,10 +1193,6 @@ export default function AdminPage() {
                     thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
                     
-                    /* Hide everything else during print */
-                    body > :not(.modal-container) {
-                        display: none !important;
-                    }
                     @page {
                         margin: 0;
                         size: A4 portrait;
