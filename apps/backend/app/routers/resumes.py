@@ -419,6 +419,7 @@ async def get_resume(
         id=None,  # TinyDB doesn't have numeric IDs like SQL
         content=resume["content"],
         content_type=resume["content_type"],
+        filename=resume.get("filename"),
         created_at=resume["created_at"],
         processing_status=processing_status,
     )
@@ -438,6 +439,7 @@ async def get_resume(
         request_id=str(uuid4()),
         data=ResumeFetchData(
             resume_id=resume_id,
+            filename=resume.get("filename"),
             raw_resume=raw_resume,
             processed_resume=processed_resume,
             cover_letter=resume.get("cover_letter"),

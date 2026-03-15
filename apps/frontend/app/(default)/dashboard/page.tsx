@@ -82,12 +82,29 @@ export default function DashboardPage() {
       const data = await fetchResume(resumeId);
       const status = data.raw_resume?.processing_status || 'pending';
       setProcessingStatus(status as ProcessingStatus);
+      
+      // Sync masterResume state if this is the master
+      if (resumeId === localStorage.getItem('master_resume_id')) {
+        setMasterResume({
+          resume_id: data.resume_id,
+          filename: data.filename || null,
+          is_master: true,
+          parent_id: data.parent_id || null,
+          processing_status: status as 'pending' | 'processing' | 'ready' | 'failed',
+          created_at: data.raw_resume.created_at,
+          updated_at: data.raw_resume.created_at,
+          title: data.title,
+          ats_score: data.ats_score,
+          ats_breakdown: data.ats_breakdown,
+        });
+      }
     } catch (err: unknown) {
       console.error('Failed to check resume status:', err);
       // If resume not found (404), clear the stale localStorage
       if (err instanceof Error && err.message.includes('404')) {
         localStorage.removeItem('master_resume_id');
         setMasterResumeId(null);
+        setMasterResume(null);
         return;
       }
       setProcessingStatus('failed');

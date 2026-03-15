@@ -387,6 +387,7 @@ class RawResume(BaseModel):
     id: int | None = None
     content: str
     content_type: str = "md"
+    filename: str | None = None
     created_at: str
     processing_status: str = "pending"  # pending, processing, ready, failed
 
@@ -395,6 +396,7 @@ class ResumeFetchData(BaseModel):
     """Data payload for resume fetch response."""
 
     resume_id: str
+    filename: str | None = None
     raw_resume: RawResume
     processed_resume: ResumeData | None = None
     cover_letter: str | None = None

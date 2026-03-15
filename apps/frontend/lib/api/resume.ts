@@ -53,6 +53,7 @@ interface ResumeResponse {
   request_id: string;
   data: {
     resume_id: string;
+    filename?: string | null;
     raw_resume: {
       id: number | null;
       content: string;
@@ -65,6 +66,8 @@ interface ResumeResponse {
     outreach_message?: string | null;
     parent_id?: string | null; // For determining if resume is tailored
     title?: string | null;
+    ats_score?: number | null;
+    ats_breakdown?: Record<string, any> | null;
   };
 }
 
