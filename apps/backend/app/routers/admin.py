@@ -176,11 +176,11 @@ async def fix_production_config():
         config_info = json.loads(config_path.read_text())
         old_model = config_info.get("model")
         
-        # known broken value
-        BROKEN_MODEL = "gemini-3.1-flash-lite-preview"
+        # known broken values
+        BROKEN_MODELS = {"gemini-3.1-flash-lite-preview", "gemini-flash-latest"}
         CORRECT_MODEL = "gemini-flash-lite-latest"
         
-        if old_model == BROKEN_MODEL:
+        if old_model in BROKEN_MODELS:
             config_info["model"] = CORRECT_MODEL
             config_path.write_text(json.dumps(config_info, indent=2))
             return {
