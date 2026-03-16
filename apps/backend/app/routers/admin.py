@@ -521,29 +521,43 @@ async def bulk_upload_resumes(
         # Process stand-alone drive_url if provided
         if drive_url and drive_url.strip().startswith("http"):
             url = drive_url.strip()
-            # Try to infer user from URL or use a generic one
-            # For now, we'll create a generic "Drive Upload" student if no files/CSV matched it
-            user_id = f"drive_{int(datetime.now().timestamp())}"
-            try:
-                db.create_user(name=f"Drive Upload {user_id[-4:]}", email="", cohort_id=cohort_id, user_id=user_id)
-                filename = f"drive_resume_{user_id}.pdf"
-                resume = await db.create_resume_atomic_master(
-                    content="Pending background capture...",
-                    content_type="md",
-                    filename=filename,
-                    processing_status="pending",
-                    user_id=user_id,
-                )
-                from app.worker import capture_pdf_snapshot_task
-                capture_pdf_snapshot_task.delay(resume["resume_id"], url, job_id=job_id, user_id=user_id)
-                results.append({
-                    "filename": "Google Drive Link",
-                    "status": "processing",
-                    "message": "Queued for background capture"
-                })
-            except Exception as e:
-                logger.error("Failed to process Drive URL: %s", e)
-                results.append({"filename": "Google Drive Link", "status": "error", "error": str(e)})
+            
+            # Check if it's a folder
+            is_folder = "/folders/" in url or "embeddedfolderview" in url
+            urls_to_process = [url]
+            
+            if is_folder:
+                logger.info("Detected Drive folder, scanning for files...")
+                from app.services.drive_scanner import discover_drive_files
+                urls_to_process = await discover_drive_files(url)
+                if not urls_to_process:
+                     # Fallback to treat as single URL if scan fails or returns nothing
+                     urls_to_process = [url]
+            
+            for target_url in urls_to_process:
+                # Try to infer user from URL or use a generic one
+                from datetime import datetime
+                user_id = f"drive_{int(datetime.now().timestamp())}_{uuid4().hex[:4]}"
+                try:
+                    db.create_user(name=f"Drive Upload {user_id[-4:]}", email="", cohort_id=cohort_id, user_id=user_id)
+                    filename = f"drive_resume_{user_id}.pdf"
+                    resume = await db.create_resume_atomic_master(
+                        content="Pending background capture...",
+                        content_type="md",
+                        filename=filename,
+                        processing_status="pending",
+                        user_id=user_id,
+                    )
+                    from app.worker import capture_pdf_snapshot_task
+                    capture_pdf_snapshot_task.delay(resume["resume_id"], target_url, job_id=job_id, user_id=user_id)
+                    results.append({
+                        "filename": f"Drive File ({len(results)+1})",
+                        "status": "processing",
+                        "message": "Queued for background capture"
+                    })
+                except Exception as e:
+                    logger.error("Failed to process Drive URL %s: %s", target_url, e)
+                    results.append({"filename": "Google Drive Link", "status": "error", "error": str(e)})
 
         # Match files to students
         students = db.get_cohort_students_progress(cohort_id)
