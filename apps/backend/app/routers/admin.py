@@ -358,6 +358,7 @@ async def bulk_upload_resumes(
     cohort_id: str,
     files: list[UploadFile] = File(...),
     job_id: Optional[str] = None,
+    as_tailored: bool = Query(False),
 ):
     """Bulk upload resume PDFs for students in a cohort.
     
@@ -556,13 +557,29 @@ async def bulk_upload_resumes(
                     continue
 
                 markdown_content = await parse_document(content, filename)
-                resume = await db.create_resume_atomic_master(
-                    content=markdown_content,
-                    content_type="md",
-                    filename=filename,
-                    processing_status="processing",
-                    user_id=user_id,
-                )
+                
+                if as_tailored:
+                    # Link to master resume as parent
+                    master_resume = db.get_master_resume(user_id=user_id)
+                    parent_id = master_resume["resume_id"] if master_resume else None
+                    
+                    resume = db.create_resume(
+                        content=markdown_content,
+                        content_type="md",
+                        filename=filename,
+                        is_master=False,
+                        parent_id=parent_id,
+                        processing_status="processing",
+                        user_id=user_id,
+                    )
+                else:
+                    resume = await db.create_resume_atomic_master(
+                        content=markdown_content,
+                        content_type="md",
+                        filename=filename,
+                        processing_status="processing",
+                        user_id=user_id,
+                    )
 
                 try:
                     from app.worker import process_and_score_resume_task

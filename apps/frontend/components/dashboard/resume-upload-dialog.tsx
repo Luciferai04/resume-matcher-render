@@ -28,6 +28,7 @@ interface ResumeUploadDialogProps {
   onUploadComplete?: (resumeId: string) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  parentId?: string;
 }
 
 const ACCEPTED_FILE_TYPES = [
@@ -42,6 +43,7 @@ export function ResumeUploadDialog({
   onUploadComplete,
   open: controlledOpen,
   onOpenChange,
+  parentId,
 }: ResumeUploadDialogProps) {
   const { t } = useTranslations();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -105,7 +107,7 @@ export function ResumeUploadDialog({
     maxSize: MAX_FILE_SIZE,
     accept: ACCEPTED_FILE_TYPES.join(','),
     multiple: false,
-    uploadUrl: UPLOAD_URL,
+    uploadUrl: getUploadUrl(parentId),
     onUploadSuccess: (uploadedFile, response) => {
       const data = response as {
         resume_id?: string;

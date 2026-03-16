@@ -86,6 +86,7 @@ export async function apiDelete(endpoint: string): Promise<Response> {
 /**
  * Builds the full upload URL for file uploads.
  */
-export function getUploadUrl(): string {
-  return `${API_BASE}/resumes/upload`;
+export function getUploadUrl(parentId?: string): string {
+  const base = `${API_BASE}/resumes/upload`;
+  return parentId ? `${base}?parent_id=${parentId}` : base;
 }

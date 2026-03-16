@@ -28,7 +28,7 @@ export function UserSwitcher() {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 no-print">
             {isOpen && (
                 <Card className="mb-4 p-4 shadow-sw-lg border-2 border-black bg-white w-64 animate-in fade-in slide-in-from-bottom-2">
                     <h3 className="font-mono text-xs font-bold uppercase mb-3 text-gray-500 tracking-widest">

@@ -317,6 +317,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 @router.post("/upload", response_model=ResumeUploadResponse)
 async def upload_resume(
     file: UploadFile = File(...),
+    parent_id: Optional[str] = Query(None),
     user_id: Optional[str] = Depends(get_current_user),
 ) -> ResumeUploadResponse:
     """Upload and process a resume file (PDF/DOCX).
@@ -352,15 +353,28 @@ async def upload_resume(
             detail="Failed to parse document. Please ensure it's a valid PDF or DOCX file.",
         )
 
-    # Store in database first with "processing" status (atomic master assignment)
-    resume = await db.create_resume_atomic_master(
-        content=markdown_content,
-        content_type="md",
-        filename=file.filename,
-        processed_data=None,
-        processing_status="processing",
-        user_id=user_id,
-    )
+    # Store in database first with "processing" status
+    if parent_id:
+        # Upload as tailored version of another resume
+        resume = db.create_resume(
+            content=markdown_content,
+            content_type="md",
+            filename=file.filename,
+            is_master=False,
+            parent_id=parent_id,
+            processing_status="processing",
+            user_id=user_id,
+        )
+    else:
+        # Atomic master assignment for standard uploads
+        resume = await db.create_resume_atomic_master(
+            content=markdown_content,
+            content_type="md",
+            filename=file.filename,
+            processed_data=None,
+            processing_status="processing",
+            user_id=user_id,
+        )
 
     # Trigger background processing with fallback to inline
     try:

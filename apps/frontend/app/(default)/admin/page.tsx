@@ -176,6 +176,7 @@ export default function AdminPage() {
     const [fetchingReport, setFetchingReport] = useState(false);
     const [deleting, setDeleting] = useState<string | null>(null);
     const [deletingUser, setDeletingUser] = useState<string | null>(null);
+    const [asTailored, setAsTailored] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -382,9 +383,12 @@ export default function AdminPage() {
             for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
             
             const endpoint = `/admin/cohorts/${selectedCohort}/bulk-upload-resumes`;
-            const queryParams = scoringJobId.trim() ? `?job_id=${scoringJobId.trim()}` : '';
+            const queryParams = [
+                scoringJobId.trim() ? `job_id=${scoringJobId.trim()}` : null,
+                asTailored ? `as_tailored=true` : null
+            ].filter(Boolean).join('&');
             
-            const res = await apiFetch(`${endpoint}${queryParams}`, {
+            const res = await apiFetch(`${endpoint}${queryParams ? `?${queryParams}` : ''}`, {
                 method: 'POST',
                 body: fd,
             });
@@ -481,8 +485,8 @@ export default function AdminPage() {
     };
 
     return (
-        <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
-            <div className="dashboard-content">
+        <>
+            <div className="no-print" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
             <header style={{ marginBottom: '48px', borderBottom: `4px solid ${INK}`, paddingBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
@@ -691,9 +695,30 @@ export default function AdminPage() {
 
                                 {/* Bulk Upload */}
                                 <div style={{ background: CANVAS, border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '24px', flex: '1 1 400px' }}>
-                                    <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
-                                        Bulk Upload
-                                    </h3>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                        <h3 style={{ fontFamily: FONT_MONO, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+                                            Bulk Upload
+                                        </h3>
+                                        <div 
+                                            onClick={() => setAsTailored(!asTailored)}
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '6px', 
+                                                cursor: 'pointer',
+                                                padding: '4px 8px',
+                                                background: asTailored ? BLUE : 'transparent',
+                                                border: `1px solid ${INK}`,
+                                                color: asTailored ? CANVAS : INK,
+                                                fontFamily: FONT_MONO,
+                                                fontSize: '10px',
+                                                fontWeight: 700,
+                                                textTransform: 'uppercase'
+                                            }}
+                                        >
+                                            <CheckCircle2 size={10} /> {asTailored ? 'Mode: Tailored' : 'Mode: Master'}
+                                        </div>
+                                    </div>
                                     <div
                                         onClick={() => !uploading && fileInputRef.current?.click()}
                                         onDragOver={e => e.preventDefault()}
@@ -904,8 +929,8 @@ export default function AdminPage() {
                     )}
                 </div>
             </div>
-            </div> {/* End dashboard-content */}
-
+            </div> {/* End no-print (485) */}
+            
             {/* Executive Report Modal */}
             {showReport && reportData && (
                 <div style={{
@@ -1158,6 +1183,9 @@ export default function AdminPage() {
 
                 @media print {
                     .no-print, .dashboard-content { display: none !important; }
+                    .modal-container, .modal-container * { 
+                        visibility: visible !important; 
+                    }
                     html, body { 
                         margin: 0 !important; 
                         padding: 0 !important; 
@@ -1166,9 +1194,7 @@ export default function AdminPage() {
                         height: auto !important;
                     }
                     .modal-container { 
-                        position: absolute !important; 
-                        top: 0 !important;
-                        left: 0 !important;
+                        position: static !important; 
                         width: 100% !important;
                         height: auto !important;
                         background: white !important; 
@@ -1192,13 +1218,12 @@ export default function AdminPage() {
                     tr { page-break-inside: avoid; page-break-after: auto; }
                     thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
-                    
-                    @page {
-                        margin: 0;
-                        size: A4 portrait;
-                    }
+                }
+                @page {
+                    margin: 0;
+                    size: A4 portrait;
                 }
             `}</style>
-        </div>
+        </>
     );
 }

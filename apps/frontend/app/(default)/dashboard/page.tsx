@@ -39,6 +39,8 @@ export default function DashboardPage() {
   const [tailoredResumes, setTailoredResumes] = useState<ResumeListItem[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isImproveDialogOpen, setIsImproveDialogOpen] = useState(false);
+  const [uploadParentId, setUploadParentId] = useState<string | null>(null);
   const router = useRouter();
 
   // Status cache for optimistic counter updates and LLM status check
@@ -426,7 +428,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex gap-1">
-                    {processingStatus === 'failed' && (
+                    {processingStatus === 'failed' ? (
                       <>
                         <Button
                           variant="ghost"
@@ -443,6 +445,20 @@ export default function DashboardPage() {
                           )}
                         </Button>
                       </>
+                    ) : processingStatus === 'ready' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-green-100 hover:text-green-700 z-10 rounded-none relative border border-black font-mono text-[10px] uppercase font-bold"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadParentId(masterResumeId);
+                            setIsImproveDialogOpen(true);
+                          }}
+                          title="Upload improved version manually"
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Improve
+                        </Button>
                     )}
                   </div>
                   {masterResume?.ats_score !== undefined && masterResume?.ats_score !== null && (
@@ -522,6 +538,21 @@ export default function DashboardPage() {
                     <span className="font-mono text-[10px] text-gray-500 uppercase">
                       {resume.processing_status}
                     </span>
+                    {resume.processing_status === 'ready' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 hover:bg-green-100 hover:text-green-700 z-10 rounded-none relative border border-black"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUploadParentId(resume.resume_id);
+                            setIsImproveDialogOpen(true);
+                          }}
+                          title="Upload improved version manually"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                    )}
                     {resume.ats_score !== undefined && resume.ats_score !== null && (
                       <div 
                         className="font-mono font-bold px-1.5 py-0.5 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-[11px]"
@@ -584,6 +615,16 @@ export default function DashboardPage() {
             className={`hidden md:block ${fillerPalette[index % fillerPalette.length]} aspect-square h-full opacity-70 pointer-events-none`}
           />
         ))}
+
+        <ResumeUploadDialog
+          open={isImproveDialogOpen}
+          onOpenChange={setIsImproveDialogOpen}
+          onUploadComplete={() => {
+            loadTailoredResumes();
+            setIsImproveDialogOpen(false);
+          }}
+          parentId={uploadParentId || undefined}
+        />
 
         <ConfirmDialog
           open={showDeleteDialog}
