@@ -177,6 +177,7 @@ export default function AdminPage() {
     const [deleting, setDeleting] = useState<string | null>(null);
     const [deletingUser, setDeletingUser] = useState<string | null>(null);
     const [asTailored, setAsTailored] = useState(false);
+    const [driveUrl, setDriveUrl] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { 
@@ -375,20 +376,26 @@ export default function AdminPage() {
         window.print();
     };
 
-    const handleBulkUpload = async (files: FileList) => {
-        if (!selectedCohort || files.length === 0) return;
+    const handleBulkUpload = async (files: FileList | null, urlOverride?: string) => {
+        if (!selectedCohort) return;
+        if ((!files || files.length === 0) && !urlOverride) return;
+        
         setUploading(true); setUploadResults(null);
         try {
             const fd = new FormData();
-            for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
+            if (files) {
+                for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
+            }
             
             const endpoint = `/admin/cohorts/${selectedCohort}/bulk-upload-resumes`;
-            const queryParams = [
-                scoringJobId.trim() ? `job_id=${scoringJobId.trim()}` : null,
-                asTailored ? `as_tailored=true` : null
-            ].filter(Boolean).join('&');
+            const params = new URLSearchParams();
+            if (scoringJobId.trim()) params.append('job_id', scoringJobId.trim());
+            if (asTailored) params.append('as_tailored', 'true');
+            if (urlOverride) params.append('drive_url', urlOverride);
             
-            const res = await apiFetch(`${endpoint}${queryParams ? `?${queryParams}` : ''}`, {
+            const queryString = params.toString();
+            
+            const res = await apiFetch(`${endpoint}${queryString ? `?${queryString}` : ''}`, {
                 method: 'POST',
                 body: fd,
             });
@@ -737,6 +744,35 @@ export default function AdminPage() {
                                             {uploading ? 'Uploading...' : 'Drop Resumes or responses.csv'}
                                         </div>
                                     </div>
+
+                                    {/* Drive Link Input */}
+                                    <div style={{ marginTop: '16px', borderTop: `1px solid ${PANEL}`, paddingTop: '16px' }}>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                value={driveUrl}
+                                                onChange={e => setDriveUrl(e.target.value)}
+                                                placeholder="Paste Google Drive link..."
+                                                style={{ ...inputStyle, flex: 1, fontSize: '12px' }}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    if (driveUrl.trim()) {
+                                                        handleBulkUpload(null, driveUrl.trim());
+                                                        setDriveUrl('');
+                                                    }
+                                                }}
+                                                disabled={uploading || !driveUrl.trim()}
+                                                style={{ ...btnPrimary, padding: '8px 16px', opacity: uploading || !driveUrl.trim() ? 0.4 : 1 }}
+                                            >
+                                                {uploading ? '...' : 'Process'}
+                                            </button>
+                                        </div>
+                                        <div style={{ fontFamily: FONT_MONO, fontSize: '9px', color: MUTED, marginTop: '4px', textTransform: 'uppercase' }}>
+                                            Supports direct folders or individual PDF links
+                                        </div>
+                                    </div>
+
                                     {uploadResults && (
                                         <div style={{ marginTop: '10px', fontFamily: FONT_MONO, fontSize: '11px' }}>
                                             {uploadResults.slice(0, 3).map((r, i) => (

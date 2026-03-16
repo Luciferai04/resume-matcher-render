@@ -356,9 +356,10 @@ async def delete_student_resume_endpoint(user_id: str):
 @router.post("/cohorts/{cohort_id}/bulk-upload-resumes")
 async def bulk_upload_resumes(
     cohort_id: str,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] = File(default=[]),
     job_id: Optional[str] = None,
     as_tailored: bool = Query(False),
+    drive_url: Optional[str] = Query(None),
 ):
     """Bulk upload resume PDFs for students in a cohort.
     
@@ -398,25 +399,33 @@ async def bulk_upload_resumes(
                 students_to_create = []
                 
                 for row in reader:
-                    name_key = next((k for k in row.keys() if k and "Full Name" in str(k)), None)
-                    roll_key = next((k for k in row.keys() if k and ("Roll Number" in str(k) or "Student ID" in str(k))), None)
-                    email_key = next((k for k in row.keys() if k and "Email Address" in str(k)), None)
-                    college_key = next((k for k in row.keys() if k and ("College/Institution" in str(k) or "Institution Name" in str(k))), None)
-                    if not college_key:
-                         college_key = next((k for k in row.keys() if k and ("College" in str(k) and "Email" not in str(k))), None)
+                    # Normalized keys for fuzzy matching
+                    keys = [str(k).lower().strip() for k in row.keys() if k]
                     
-                    resume_url_key = next((k for k in row.keys() if k and "Upload Your Resume" in str(k)), None)
+                    def find_key(patterns: list[str]) -> Optional[str]:
+                        for p in patterns:
+                            for k in row.keys():
+                                if k and p.lower() in str(k).lower():
+                                    return k
+                        return None
+
+                    name_key = find_key(["Full Name", "Name", "Student Name", "Username"])
+                    roll_key = find_key(["Roll Number", "Student ID", "Roll No", "ID", "UID"])
+                    email_key = find_key(["Email Address", "Email"])
+                    college_key = find_key(["College", "Institution", "University", "School"])
+                    resume_url_key = find_key(["Resume", "Link", "URL", "Upload Your Resume"])
                     
                     name = row.get(name_key, "").strip() if name_key else None
                     roll = row.get(roll_key, "").strip() if roll_key else None
-                    
-                    if not name and not roll:
-                        continue
-                        
-                    user_id = roll or str(uuid4())
-                    name = name or f"Student {user_id}"
                     email = row.get(email_key, "").strip() if email_key else None
                     college = row.get(college_key, "").strip() if college_key else None
+                    resume_url = row.get(resume_url_key, "").strip() if resume_url_key else None
+                    
+                    if not name and not roll and not email:
+                        continue
+                        
+                    user_id = roll or email or str(uuid4())
+                    name = name or f"Student {user_id}"
                     
                     info = {
                         "user_id": user_id,
@@ -424,7 +433,7 @@ async def bulk_upload_resumes(
                         "email": email,
                         "college": college,
                         "roll_number": roll,
-                        "resume_url": row.get(resume_url_key, "").strip() if resume_url_key else None
+                        "resume_url": resume_url
                     }
                     students_to_create.append(info)
                 
@@ -508,6 +517,33 @@ async def bulk_upload_resumes(
                         "status": "error",
                         "error": f"Queuing failed: {str(proc_err)}",
                     })
+
+        # Process stand-alone drive_url if provided
+        if drive_url and drive_url.strip().startswith("http"):
+            url = drive_url.strip()
+            # Try to infer user from URL or use a generic one
+            # For now, we'll create a generic "Drive Upload" student if no files/CSV matched it
+            user_id = f"drive_{int(datetime.now().timestamp())}"
+            try:
+                db.create_user(name=f"Drive Upload {user_id[-4:]}", email="", cohort_id=cohort_id, user_id=user_id)
+                filename = f"drive_resume_{user_id}.pdf"
+                resume = await db.create_resume_atomic_master(
+                    content="Pending background capture...",
+                    content_type="md",
+                    filename=filename,
+                    processing_status="pending",
+                    user_id=user_id,
+                )
+                from app.worker import capture_pdf_snapshot_task
+                capture_pdf_snapshot_task.delay(resume["resume_id"], url, job_id=job_id, user_id=user_id)
+                results.append({
+                    "filename": "Google Drive Link",
+                    "status": "processing",
+                    "message": "Queued for background capture"
+                })
+            except Exception as e:
+                logger.error("Failed to process Drive URL: %s", e)
+                results.append({"filename": "Google Drive Link", "status": "error", "error": str(e)})
 
         # Match files to students
         students = db.get_cohort_students_progress(cohort_id)
