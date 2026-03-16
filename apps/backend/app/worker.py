@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 celery_app = Celery(
     "resume_matcher",
     broker=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
-    backend=os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    backend=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+    broker_connection_retry_on_startup=True
 )
 
 celery_app.conf.update(

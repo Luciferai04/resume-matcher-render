@@ -5,7 +5,7 @@ import datetime
 from typing import Any, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Query
 from pydantic import BaseModel, Field
 
 from sqlalchemy import select
