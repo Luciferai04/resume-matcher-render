@@ -601,8 +601,21 @@ class Database:
 
                 master_obj = _unwrap_row(master) if master else None
 
-                # Get ATS score: use consistent shared fallback logic
-                effective_ats_score, effective_ats_breakdown = self._get_effective_score(session, user.user_id)
+                # Get ATS scores
+                master_score = master_obj.ats_score if master_obj else None
+                
+                # Get best tailored score
+                best_tailored_stmt = (
+                    select(Resume.ats_score)
+                    .where(
+                        Resume.user_id == user.user_id,
+                        Resume.parent_id.isnot(None),
+                        Resume.ats_score.isnot(None)
+                    )
+                    .order_by(Resume.ats_score.desc())
+                    .limit(1)
+                )
+                tailored_score = session.scalar(best_tailored_stmt)
 
                 # Determine status
                 if not master:
@@ -611,7 +624,7 @@ class Database:
                     status = "upload_failed"
                 elif master_obj and master_obj.processing_status == "processing":
                     status = "processing"
-                elif effective_ats_score is not None:
+                elif master_score is not None or tailored_score is not None:
                     status = "scored"
                 elif tailored_count > 0:
                     status = "improved"
@@ -625,8 +638,10 @@ class Database:
                     "has_resume": master is not None,
                     "resume_filename": master_obj.filename if master_obj else None,
                     "processing_status": master_obj.processing_status if master_obj else None,
-                    "ats_score": effective_ats_score,
-                    "ats_breakdown": effective_ats_breakdown,
+                    "ats_score": master_score or tailored_score, # Legacy field for compatibility
+                    "master_score": master_score,
+                    "tailored_score": tailored_score,
+                    "ats_breakdown": master_obj.ats_breakdown if master_obj else None,
                     "total_resumes": int(total_resumes),
                     "tailored_count": int(tailored_count),
                     "job_count": int(job_count),

@@ -23,6 +23,8 @@ interface StudentProgress {
     resume_filename: string | null;
     processing_status: string | null;
     ats_score: number | null;
+    master_score: number | null;
+    tailored_score: number | null;
     ats_breakdown: Record<string, number> | null;
     total_resumes: number;
     tailored_count: number;
@@ -55,6 +57,8 @@ interface LeaderboardEntry {
     name: string;
     email: string | null;
     ats_score: number | null;
+    master_score: number | null;
+    tailored_score: number | null;
     resume_filename: string | null;
     tailored_count: number;
     status: string;
@@ -898,11 +902,34 @@ export default function AdminPage() {
                                                         )}
                                                     </td>
                                                     <td style={{ padding: '12px 16px' }}>
-                                                        {s.progress.ats_score !== null ? (
-                                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '20px', color: s.progress.ats_score >= 75 ? GREEN : s.progress.ats_score >= 50 ? ORANGE : RED }}>
-                                                                {s.progress.ats_score}
-                                                            </span>
-                                                        ) : <span style={{ color: PANEL }}>—</span>}
+                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            {s.progress.master_score !== null ? (
+                                                                <span style={{ 
+                                                                    fontFamily: FONT_MONO, 
+                                                                    fontWeight: 800, 
+                                                                    fontSize: s.progress.tailored_score ? '12px' : '20px', 
+                                                                    color: s.progress.master_score >= 75 ? GREEN : s.progress.master_score >= 50 ? ORANGE : RED,
+                                                                    opacity: s.progress.tailored_score ? 0.6 : 1
+                                                                }}>
+                                                                    {s.progress.tailored_score ? `M: ${s.progress.master_score}` : s.progress.master_score}
+                                                                </span>
+                                                            ) : !s.progress.tailored_score && <span style={{ color: PANEL }}>—</span>}
+                                                            
+                                                            {s.progress.tailored_score !== null && (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    {s.progress.master_score !== null && <div style={{ width: '2px', height: '10px', background: MUTED, opacity: 0.3 }} />}
+                                                                    <span style={{ 
+                                                                        fontFamily: FONT_MONO, 
+                                                                        fontWeight: 900, 
+                                                                        fontSize: '20px', 
+                                                                        color: s.progress.tailored_score >= 75 ? GREEN : s.progress.tailored_score >= 50 ? ORANGE : RED 
+                                                                    }}>
+                                                                        {s.progress.tailored_score}
+                                                                        <span style={{ fontSize: '10px', marginLeft: '2px', verticalAlign: 'top', opacity: 0.8 }}>★</span>
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '13px', color: s.progress.tailored_count > 0 ? GREEN : MUTED, fontWeight: 700 }}>
                                                         {s.progress.tailored_count}
@@ -943,12 +970,26 @@ export default function AdminPage() {
                                                         <div style={{ fontFamily: FONT_SANS, fontWeight: 700, color: INK, fontSize: '14px' }}>{entry.name}</div>
                                                     </div>
                                                     <StatusBadge status={entry.status} />
-                                                    <div style={{ textAlign: 'right', minWidth: '50px' }}>
-                                                        {entry.ats_score !== null ? (
-                                                            <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '24px', color: entry.ats_score >= 75 ? GREEN : entry.ats_score >= 50 ? ORANGE : RED }}>
-                                                                {entry.ats_score}
-                                                            </span>
-                                                        ) : <span style={{ color: PANEL, fontFamily: FONT_MONO }}>—</span>}
+                                                    <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                            {entry.master_score !== null && entry.tailored_score !== null ? (
+                                                                <>
+                                                                    <span style={{ fontFamily: FONT_MONO, fontWeight: 700, fontSize: '10px', color: MUTED, opacity: 0.7 }}>
+                                                                        {entry.master_score} →
+                                                                    </span>
+                                                                    <span style={{ fontFamily: FONT_MONO, fontWeight: 900, fontSize: '24px', color: entry.tailored_score >= 75 ? GREEN : entry.tailored_score >= 50 ? ORANGE : RED }}>
+                                                                        {entry.tailored_score}
+                                                                        <span style={{ fontSize: '12px', marginLeft: '2px', verticalAlign: 'top' }}>★</span>
+                                                                    </span>
+                                                                </>
+                                                            ) : entry.ats_score !== null ? (
+                                                                <span style={{ fontFamily: FONT_MONO, fontWeight: 800, fontSize: '24px', color: entry.ats_score >= 75 ? GREEN : entry.ats_score >= 50 ? ORANGE : RED }}>
+                                                                    {entry.ats_score}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: PANEL, fontFamily: FONT_MONO }}>—</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     {entry.tailored_count > 0 && (
                                                         <div style={{ fontFamily: FONT_MONO, fontSize: '10px', color: MUTED, textTransform: 'uppercase', minWidth: '70px', textAlign: 'right' }}>
@@ -1181,8 +1222,27 @@ export default function AdminPage() {
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '14px', fontWeight: 900, textAlign: 'right', color: s.ats_score ? (s.ats_score >= 75 ? GREEN : s.ats_score >= 50 ? ORANGE : RED) : MUTED }}>
-                                                        {s.ats_score ?? '—'}
+                                                    <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, textAlign: 'right' }}>
+                                                        {s.master_score !== null && s.tailored_score !== null ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                                <span style={{ fontSize: '9px', color: MUTED }}>{s.master_score} INITIAL</span>
+                                                                <span style={{ 
+                                                                    fontSize: '14px', 
+                                                                    fontWeight: 900, 
+                                                                    color: s.tailored_score >= 75 ? GREEN : s.tailored_score >= 50 ? ORANGE : RED 
+                                                                }}>
+                                                                    {s.tailored_score} OPTIMIZED
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span style={{ 
+                                                                fontSize: '14px', 
+                                                                fontWeight: 900, 
+                                                                color: s.ats_score ? (s.ats_score >= 75 ? GREEN : s.ats_score >= 50 ? ORANGE : RED) : MUTED 
+                                                            }}>
+                                                                {s.ats_score ?? '—'}
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '12px 16px', fontFamily: FONT_MONO, fontSize: '11px', fontWeight: 800, textAlign: 'right' }}>
                                                         {s.tailored_count} tailored

@@ -67,6 +67,8 @@ class LeaderboardEntry(BaseModel):
     name: str
     email: Optional[str] = None
     ats_score: Optional[int] = None
+    master_score: Optional[int] = None
+    tailored_score: Optional[int] = None
     resume_filename: Optional[str] = None
     tailored_count: int = 0
     status: str = "not_started"
@@ -907,6 +909,8 @@ async def get_leaderboard(cohort_id: str):
             "name": s["name"],
             "email": s.get("email"),
             "ats_score": progress.get("ats_score"),
+            "master_score": progress.get("master_score"),
+            "tailored_score": progress.get("tailored_score"),
             "resume_filename": progress.get("resume_filename"),
             "tailored_count": progress.get("tailored_count", 0),
             "status": progress.get("status", "not_started"),
@@ -958,12 +962,18 @@ async def get_executive_report(cohort_id: str):
     improved_scores = []
     for s in students:
         progress = s.get("progress", {})
-        ats = progress.get("ats_score")
-        if ats is not None:
-            initial_scores.append(ats)
-        # If the student has tailored resumes, treat their ATS score as "improved"
-        if ats is not None and progress.get("tailored_count", 0) > 0:
-            improved_scores.append(ats)
+        master_score = progress.get("master_score")
+        tailored_score = progress.get("tailored_score")
+        
+        if master_score is not None:
+            initial_scores.append(master_score)
+        
+        # We consider "improved" if they have a tailored score OR a tailored resume
+        # Use tailored_score if available, otherwise fallback to master_score if they have tailored resumes
+        if tailored_score is not None:
+            improved_scores.append(tailored_score)
+        elif master_score is not None and progress.get("tailored_count", 0) > 0:
+            improved_scores.append(master_score)
 
     avg_initial = round(sum(initial_scores) / len(initial_scores), 1) if initial_scores else None
     avg_improved = round(sum(improved_scores) / len(improved_scores), 1) if improved_scores else None
@@ -991,6 +1001,8 @@ async def get_executive_report(cohort_id: str):
             "email": s.get("email"),
             "status": prog.get("status", "not_started"),
             "ats_score": prog.get("ats_score"),
+            "master_score": prog.get("master_score"),
+            "tailored_score": prog.get("tailored_score"),
             "tailored_count": prog.get("tailored_count", 0),
             "last_updated": prog.get("updated_at"),
         })
