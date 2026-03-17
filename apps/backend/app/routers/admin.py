@@ -308,9 +308,14 @@ async def get_cohort(cohort_id: str):
 @router.delete("/cohorts/{cohort_id}")
 async def delete_cohort_endpoint(cohort_id: str):
     """Delete a cohort and all its associated data."""
+    # Check if the cohort exists first to distinguish 404 from 500
+    cohort = db.get_cohort(cohort_id)
+    if not cohort:
+        raise HTTPException(status_code=404, detail="Cohort not found")
+    
     success = db.delete_cohort(cohort_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Cohort not found")
+        raise HTTPException(status_code=500, detail="Failed to delete cohort. Check server logs for details.")
     return {"message": "Cohort and all associated data deleted successfully"}
 
 
@@ -658,9 +663,10 @@ async def bulk_upload_resumes(
                         if effective_job_id:
                             await score_and_update_resume(resume["resume_id"], processed_data, effective_job_id, user_id=user_id)
                     except Exception as inline_err:
-                        logger.error("Inline processing failed for %s: %s", filename, inline_err)
+                        logger.error("Inline processing failed for %s: %s", filename, inline_err, exc_info=True)
                         db.update_resume(resume["resume_id"], {
                             "processing_status": "failed",
+                            "error_message": str(inline_err),
                         }, user_id=user_id)
 
                 results.append({

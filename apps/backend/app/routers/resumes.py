@@ -404,7 +404,7 @@ async def upload_resume(
         message=f"File {file.filename} uploaded and processing in background",
         request_id=str(uuid4()),
         resume_id=resume["resume_id"],
-        processing_status="processing",
+        processing_status=resume.get("processing_status", "processing"),
         is_master=resume.get("is_master", False),
     )
 
