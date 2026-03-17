@@ -452,18 +452,28 @@ async def bulk_upload_resumes(
                 count: int = 0
                 if unique_students:
                     logger.info("Attempting to create %d students for cohort %s", len(unique_students), cohort_id)
-                    try:
-                        db.bulk_create_users(cohort_id, unique_students)
-                        count = len(unique_students)
-                    except Exception as bulk_err:
-                        logger.warning("Bulk create had issues: %s. Falling back to one-by-one.", bulk_err)
-                        for s in unique_students:
+                    # Pre-fetch existing students to avoid re-creating
+                    existing_students = db.get_cohort_students_progress(cohort_id)
+                    user_by_id = {s["user_id"]: s for s in existing_students}
+
+                    for s in unique_students:
+                        user_id = s["user_id"]
+                        name = s["name"]
+                        email = s.get("email") or ""
+                        college = s.get("college")
+                        roll_number = s.get("roll_number")
+                        drive_url_val = s.get("resume_url")
+                        markdown_content = s.get("markdown_content") # Assuming this might come from CSV in future
+
+                        matched_user = user_by_id.get(user_id)
+
+                        if not matched_user:
+                            # Auto-create user
                             try:
-                                db.create_user(
-                                    name=s["name"],
-                                    email=s.get("email") or "",
+                                user = db.create_user(
+                                    name=name,
+                                    email=email,
                                     cohort_id=cohort_id,
-                                    user_id=s["user_id"],
                                     college=s.get("college"),
                                     roll_number=s.get("roll_number"),
                                 )
@@ -576,12 +586,14 @@ async def bulk_upload_resumes(
             filename = file.filename or "resume.pdf"
             stem = filename.rsplit(".", 1)[0].strip()
 
-            # Try to match by user_id or name
+            # Match by user_id or name
             matched_user = user_by_id.get(stem) or user_by_name.get(stem.lower())
+            logger.debug("Processing file %s for user match: %s", filename, stem)
 
             if not matched_user:
                 # Auto-create user with filename as ID if no match found
                 try:
+                    logger.info("No match found for %s, auto-creating student", stem)
                     user = db.create_user(
                         name=stem.replace("_", " ").title(),
                         email=f"{stem}@cohort.local",
@@ -590,7 +602,9 @@ async def bulk_upload_resumes(
                     )
                     matched_user = user
                     user_by_id[stem] = user
+                    user_by_name[stem.lower()] = user
                 except Exception as e:
+                    logger.error("Failed to auto-create user for %s: %s", stem, e)
                     results.append({
                         "filename": filename,
                         "status": "error",
@@ -599,6 +613,7 @@ async def bulk_upload_resumes(
                     continue
 
             user_id = matched_user["user_id"]
+            logger.info("Uploading for student %s (user_id: %s)", matched_user.get("name", stem), user_id)
 
             try:
                 content = await file.read()

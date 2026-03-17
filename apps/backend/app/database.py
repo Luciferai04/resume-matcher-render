@@ -305,10 +305,11 @@ class Database:
 
     def get_master_resume(self, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get the master resume if exists."""
+        if not user_id:
+            return None
         with self.get_session() as session:
             statement = select(Resume).where(Resume.is_master == True)
-            if user_id:
-                statement = statement.where(Resume.user_id == user_id)
+            statement = statement.where(Resume.user_id == user_id)
             resume_obj = session.exec(statement).first()
             if resume_obj:
                 resume = _unwrap_row(resume_obj)
@@ -648,8 +649,8 @@ class Database:
     def delete_cohort(self, cohort_id: str) -> bool:
         """Delete a cohort and all associated data (users, resumes, jobs, improvements).
         
-        Uses pure bulk SQL DELETE statements with proper FK ordering to avoid
-        ORM/SQL mixing issues that cause auto-flush conflicts in PostgreSQL.
+        Uses pure bulk SQL DELETE statements with subqueries to handle multi-level
+        dependencies efficiently without loading IDs into memory.
         """
         logger.info("Attempting to delete cohort %s", cohort_id)
         with self.get_session() as session:
@@ -660,66 +661,42 @@ class Database:
                     logger.warning("Cohort %s not found", cohort_id)
                     return False
 
-                # 1. Collect all user_ids in this cohort
-                user_rows = session.execute(
-                    select(User.user_id).where(User.cohort_id == cohort_id)
-                ).all()
-                user_ids = [row[0] for row in user_rows]
-                logger.info("Deleting %d users in cohort %s", len(user_ids), cohort_id)
-
-                if user_ids:
-                    # 2. Collect all resume_ids and job_ids for these users
-                    resume_rows = session.execute(
-                        select(Resume.resume_id).where(Resume.user_id.in_(user_ids))
-                    ).all()
-                    resume_ids = [row[0] for row in resume_rows]
-
-                    job_rows = session.execute(
-                        select(Job.job_id).where(Job.user_id.in_(user_ids))
-                    ).all()
-                    job_ids = [row[0] for row in job_rows]
-
-                    # 3. Delete improvements (FK-free but references resume/job IDs)
-                    if resume_ids:
-                        session.execute(
-                            delete(Improvement).where(
-                                Improvement.original_resume_id.in_(resume_ids)
-                            )
-                        )
-                        session.execute(
-                            delete(Improvement).where(
-                                Improvement.tailored_resume_id.in_(resume_ids)
-                            )
-                        )
-                    if job_ids:
-                        session.execute(
-                            delete(Improvement).where(
-                                Improvement.job_id.in_(job_ids)
-                            )
-                        )
-
-                    # 4. Delete jobs (FK → user)
-                    session.execute(
-                        delete(Job).where(Job.user_id.in_(user_ids))
-                    )
-
-                    # 5. Delete resumes (FK → user)
-                    session.execute(
-                        delete(Resume).where(Resume.user_id.in_(user_ids))
-                    )
-
-                    # 6. Delete users (FK → cohort)
-                    session.execute(
-                        delete(User).where(User.cohort_id == cohort_id)
-                    )
-
-                # 7. Delete the cohort itself
-                session.execute(
-                    delete(Cohort).where(Cohort.cohort_id == cohort_id)
+                # We use subqueries to target all related data for users in this cohort.
+                # This is more robust than collecting IDs in memory.
+                
+                # 1. Delete improvements (referencing resumes and jobs)
+                # Resumes subquery
+                resumes_subq = select(Resume.resume_id).where(
+                    Resume.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
+                )
+                # Jobs subquery
+                jobs_subq = select(Job.job_id).where(
+                    Job.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
                 )
 
+                # Delete improvements referencing these resumes or jobs
+                session.execute(delete(Improvement).where(Improvement.original_resume_id.in_(resumes_subq)))
+                session.execute(delete(Improvement).where(Improvement.tailored_resume_id.in_(resumes_subq)))
+                session.execute(delete(Improvement).where(Improvement.job_id.in_(jobs_subq)))
+
+                # 2. Delete jobs (referencing users)
+                session.execute(delete(Job).where(
+                    Job.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
+                ))
+
+                # 3. Delete resumes (referencing users)
+                session.execute(delete(Resume).where(
+                    Resume.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
+                ))
+
+                # 4. Delete users (referencing cohort)
+                session.execute(delete(User).where(User.cohort_id == cohort_id))
+
+                # 5. Delete the cohort itself
+                session.execute(delete(Cohort).where(Cohort.cohort_id == cohort_id))
+
                 session.commit()
-                logger.info("Successfully deleted cohort %s", cohort_id)
+                logger.info("Successfully deleted cohort %s and all associated data", cohort_id)
                 return True
             except Exception as e:
                 logger.error("Failed to delete cohort %s: %s", cohort_id, e, exc_info=True)
@@ -729,7 +706,7 @@ class Database:
     def delete_user_data(self, user_id: str, session: Optional[Session] = None) -> bool:
         """Delete all resume and job data for a user.
         
-        Uses pure bulk SQL DELETE statements to avoid ORM/SQL mixing issues.
+        Uses pure bulk SQL DELETE statements with subqueries for efficiency.
         If session is provided, caller must commit. Otherwise, this method commits.
         """
         should_commit = False
@@ -738,30 +715,18 @@ class Database:
             should_commit = True
         
         try:
-            # 1. Get all resume IDs for this user
-            resume_rows = session.execute(
-                select(Resume.resume_id).where(Resume.user_id == user_id)
-            ).all()
-            resume_ids = [row[0] for row in resume_rows]
-            
-            # 2. Get all job IDs for this user
-            job_rows = session.execute(
-                select(Job.job_id).where(Job.user_id == user_id)
-            ).all()
-            job_ids = [row[0] for row in job_rows]
+            # 1. Delete improvements referencing this user's resumes or jobs
+            resumes_subq = select(Resume.resume_id).where(Resume.user_id == user_id)
+            jobs_subq = select(Job.job_id).where(Job.user_id == user_id)
 
-            # 3. Delete improvements first (depend on resumes and jobs)
-            if resume_ids:
-                session.execute(delete(Improvement).where(Improvement.original_resume_id.in_(resume_ids)))
-                session.execute(delete(Improvement).where(Improvement.tailored_resume_id.in_(resume_ids)))
+            session.execute(delete(Improvement).where(Improvement.original_resume_id.in_(resumes_subq)))
+            session.execute(delete(Improvement).where(Improvement.tailored_resume_id.in_(resumes_subq)))
+            session.execute(delete(Improvement).where(Improvement.job_id.in_(jobs_subq)))
             
-            if job_ids:
-                session.execute(delete(Improvement).where(Improvement.job_id.in_(job_ids)))
-            
-            # 4. Delete jobs (FK → user)
+            # 2. Delete jobs (FK -> user)
             session.execute(delete(Job).where(Job.user_id == user_id))
             
-            # 5. Delete resumes (FK → user)
+            # 3. Delete resumes (FK -> user)
             session.execute(delete(Resume).where(Resume.user_id == user_id))
             
             if should_commit:
@@ -771,7 +736,6 @@ class Database:
             logger.error("Failed to delete user data for %s: %s", user_id, str(e), exc_info=True)
             if should_commit:
                 session.rollback()
-            # Re-raise if part of a parent transaction to avoid 'aborted' state issues
             if not should_commit:
                 raise
             return False
