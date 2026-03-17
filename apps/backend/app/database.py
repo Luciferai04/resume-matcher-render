@@ -76,7 +76,15 @@ def _to_dict(obj: Any) -> dict[str, Any]:
 class Database:
     """SQL database wrapper for resume matcher data."""
 
-    _master_resume_lock = asyncio.Lock()
+    _master_resume_lock: Optional[asyncio.Lock] = None
+
+    @classmethod
+    def get_lock(cls) -> asyncio.Lock:
+        """Get the master resume lock, initializing it if necessary."""
+        if cls._master_resume_lock is None:
+            cls._master_resume_lock = asyncio.Lock()
+        assert cls._master_resume_lock is not None
+        return cls._master_resume_lock
 
     def __init__(self, db_url: Optional[str] = None):
         self.db_url = db_url or settings.database_url
@@ -262,31 +270,36 @@ class Database:
         user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """Create a new resume with atomic master assignment."""
-        async with self._master_resume_lock:
-            current_master = self.get_master_resume(user_id=user_id)
-            is_master = True # For bulk uploads, we often want the newest to be master.
-
-            if current_master:
-                # Demote old master
-                with self.get_session() as session:
-                    old_master_row = session.get(Resume, current_master["resume_id"])
-                    if old_master_row:
+        async with self.get_lock():
+            with self.get_session() as session:
+                # 1. Demote any existing master resume for this user
+                if user_id:
+                    demote_stmt = select(Resume).where(
+                        Resume.user_id == user_id,
+                        Resume.is_master == True
+                    )
+                    existing_masters = session.exec(demote_stmt).all()
+                    for old_master_row in existing_masters:
                         old_master = _unwrap_row(old_master_row)
                         old_master.is_master = False
                         session.add(old_master)
-                        session.commit()
-
-            return self.create_resume(
-                content=content,
-                content_type=content_type,
-                filename=filename,
-                is_master=is_master,
-                processed_data=processed_data,
-                processing_status=processing_status,
-                cover_letter=cover_letter,
-                outreach_message=outreach_message,
-                user_id=user_id,
-            )
+                
+                # 2. Create the new master resume
+                resume = Resume(
+                    user_id=user_id,
+                    content=content,
+                    content_type=content_type,
+                    filename=filename,
+                    is_master=True,
+                    processed_data=processed_data,
+                    processing_status=processing_status,
+                    cover_letter=cover_letter,
+                    outreach_message=outreach_message
+                )
+                session.add(resume)
+                session.commit()
+                session.refresh(resume)
+                return _to_dict(resume)
 
     def get_resume(self, resume_id: str, user_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Get resume by ID."""
@@ -297,9 +310,6 @@ class Database:
             
             if resume_obj:
                 resume = _unwrap_row(resume_obj)
-                if resume.is_master:
-                    # Apply effective score sync
-                    self._get_effective_score(session, resume.user_id)
                 return _to_dict(resume)
             return None
 
@@ -313,8 +323,6 @@ class Database:
             resume_obj = session.exec(statement).first()
             if resume_obj:
                 resume = _unwrap_row(resume_obj)
-                # Apply effective score sync
-                self._get_effective_score(session, resume.user_id)
                 return _to_dict(resume)
             return None
 
@@ -354,13 +362,9 @@ class Database:
                 statement = statement.where(Resume.user_id == user_id)
             resumes = session.exec(statement).all()
             
-            # Sync scores for the master resume in the list
             results = []
             for row in resumes:
                 resume = _unwrap_row(row)
-                if resume.is_master:
-                    # Apply effective score sync
-                    self._get_effective_score(session, resume.user_id)
                 results.append(_to_dict(resume))
             return results
 
