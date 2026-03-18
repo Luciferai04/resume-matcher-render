@@ -629,11 +629,11 @@ class Database:
                 elif master_obj and master_obj.processing_status == "processing":
                     status = "processing"
                 elif master_score is not None or tailored_score is not None:
-                    status = "scored"
+                    status = "ready"
                 elif tailored_count > 0:
                     status = "improved"
                 elif job_count > 0:
-                    status = "scored"
+                    status = "ready"
                 else:
                     status = "uploaded"
 
