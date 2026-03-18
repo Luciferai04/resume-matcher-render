@@ -100,13 +100,24 @@ Generate tailored cover letters and professional outreach emails based on the jo
 
 ![Cover Letter](assets/cover_letter.png)
 
-### 5. ATS Resume Scoring (In Development)
+### 5. ATS Resume Scoring & Feedback
 
-Analyze your resume against the job description. Get a match score, keyword highlighting, and actionable suggestions for improvement.
+Analyze your resume against the job description. Get a match score, keyword highlighting, and actionable suggestions for improvement. The system provides a detailed breakdown of how you compare to the job requirements.
 
 ![Resume Scoring and Keyword Highlight](assets/keyword_highlighter.png)
 
-### 6. PDF Export with Professional Templates
+### 6. Admin Terminal: Executive Report & Cohort Tracking
+
+For instructors and placement officers, the Admin Terminal provides a birds-eye view of an entire cohort's progress.
+
+- **Score Journey Tracking**: See how students improve from their initial master resume to their final tailored applications.
+- **Engagement Funnel**: Visualize the cohort's journey from upload to optimized resume.
+- **Skill Gap Analysis**: Identify top missing skills across the entire batch to tailor training.
+- **Score Growth Metrics**: Track average initial vs. optimized scores to measure the platform's impact.
+
+![Executive Report](assets/executive_report_preview.png)
+
+### 7. PDF Export with Professional Templates
 
 Export your tailored resume and cover letter as polished PDFs using headless Chromium (Playwright).
 
@@ -117,7 +128,7 @@ Export your tailored resume and cover letter as polished PDFs using headless Chr
 | **Classic Two Column** | ![Classic Two Column Template](assets/pdf-templates/two-column.jpg) | A structured layout that separates sections for clarity. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/two-column.pdf)|
 | **Modern Two Column** | ![Modern Two Column Template](assets/pdf-templates/modern-two-column.jpg) | A sleek design that utilizes two columns for better organization. [𝐕𝐢𝐞𝐰 𝐏𝐃𝐅](assets/pdf-templates/modern-two-column.pdf)|
 
-### 7. Internationalization
+### 8. Internationalization
 
 - **Multi-Language UI**: Interface available in English, Spanish, Chinese, and Japanese
 - **Multi-Language Content**: Generate resumes and cover letters in your preferred language
@@ -604,13 +615,13 @@ We welcome contributions from everyone! Whether you're a developer, designer, or
 ### Roadmap
 
 - ✅ Multi-tenant architecture with per-user data isolation
-- ✅ Pre-configured deployment for Railway
+- ✅ Pre-configured deployment for Railway with venv support
 - ✅ User context switcher for testing/instructor review
 - ✅ Consolidated backend + worker for Free tier hosting
+- ✅ Instructor dashboard (Executive Report) for cohort tracking
 - 🔲 Full OAuth/JWT authentication
-- 🔲 Instructor dashboard for cohort-wide progress tracking
 - 🔲 Database migrations with Alembic
-- 🔲 Visual keyword highlighting
+- 🔲 Visual keyword highlighting (Full Canvas)
 - 🔲 AI Canvas for crafting impactful, metric-driven resume content
 - 🔲 Multi-job description optimization
 
