@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
-from sqlalchemy import select, delete, func, text
+from sqlalchemy import select, delete, update, func, text
 from sqlmodel import Session, create_engine, SQLModel
 
 from app.config import settings
@@ -683,35 +683,37 @@ class Database:
                 # We use subqueries to target all related data for users in this cohort.
                 # This is more robust than collecting IDs in memory.
                 
-                # 1. Delete improvements (referencing resumes and jobs)
-                # Resumes subquery
-                resumes_subq = select(Resume.resume_id).where(
-                    Resume.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
+                # Subquery for user IDs in this cohort
+                user_ids_subq = select(User.user_id).where(User.cohort_id == cohort_id)
+
+                # 1. Nullify parent_id self-references in Resume table to avoid FK constraint issues
+                session.execute(
+                    update(Resume)
+                    .where(Resume.user_id.in_(user_ids_subq))
+                    .values(parent_id=None)
                 )
-                # Jobs subquery
-                jobs_subq = select(Job.job_id).where(
-                    Job.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
-                )
+
+                # 2. Delete improvements (referencing resumes and jobs)
+                # Resumes subq for this cohort
+                curr_res_subq = select(Resume.resume_id).where(Resume.user_id.in_(user_ids_subq))
+                # Jobs subq for this cohort
+                curr_jobs_subq = select(Job.job_id).where(Job.user_id.in_(user_ids_subq))
 
                 # Delete improvements referencing these resumes or jobs
-                session.execute(delete(Improvement).where(Improvement.original_resume_id.in_(resumes_subq)))
-                session.execute(delete(Improvement).where(Improvement.tailored_resume_id.in_(resumes_subq)))
-                session.execute(delete(Improvement).where(Improvement.job_id.in_(jobs_subq)))
+                session.execute(delete(Improvement).where(Improvement.original_resume_id.in_(curr_res_subq)))
+                session.execute(delete(Improvement).where(Improvement.tailored_resume_id.in_(curr_res_subq)))
+                session.execute(delete(Improvement).where(Improvement.job_id.in_(curr_jobs_subq)))
 
-                # 2. Delete jobs (referencing users)
-                session.execute(delete(Job).where(
-                    Job.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
-                ))
+                # 3. Delete jobs (referencing users)
+                session.execute(delete(Job).where(Job.user_id.in_(user_ids_subq)))
 
-                # 3. Delete resumes (referencing users)
-                session.execute(delete(Resume).where(
-                    Resume.user_id.in_(select(User.user_id).where(User.cohort_id == cohort_id))
-                ))
+                # 4. Delete resumes (referencing users)
+                session.execute(delete(Resume).where(Resume.user_id.in_(user_ids_subq)))
 
-                # 4. Delete users (referencing cohort)
+                # 5. Delete users (referencing cohort)
                 session.execute(delete(User).where(User.cohort_id == cohort_id))
 
-                # 5. Delete the cohort itself
+                # 6. Delete the cohort itself
                 session.execute(delete(Cohort).where(Cohort.cohort_id == cohort_id))
 
                 session.commit()
