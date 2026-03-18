@@ -155,7 +155,7 @@ Resume-Matcher/
 │   │   │       ├── jobs.py    # Job description management
 │   │   │       └── enrichment.py # AI-powered resume improvement
 │   │   ├── seed.py            # Database seeding script for test users/cohorts
-│   │   ├── start.sh           # Entrypoint: runs both Celery worker + FastAPI
+│   │   ├── start.sh           # Entrypoint: runs both Celery + FastAPI in a managed venv
 │   │   ├── Dockerfile
 │   │   └── pyproject.toml
 │   │
