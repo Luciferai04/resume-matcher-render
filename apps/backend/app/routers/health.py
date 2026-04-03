@@ -20,9 +20,10 @@ async def health_check() -> HealthResponse:
     # Check Redis
     redis_healthy = False
     try:
-        from app.services.ats_scorer import redis_client
+        from app.redis import redis_client
         redis_healthy = redis_client.ping()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
         redis_healthy = False
 
     # Check Worker

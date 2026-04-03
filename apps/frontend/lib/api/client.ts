@@ -19,6 +19,13 @@ const getApiUrl = () => {
       url = url.replace('http:', 'https:');
     }
   }
+
+  // Normalize: remove trailing slash and strip /api/v1 if redundant
+  url = url.replace(/\/+$/, '');
+  if (url.endsWith('/api/v1')) {
+    url = url.slice(0, -7);
+  }
+  
   return url;
 };
 
