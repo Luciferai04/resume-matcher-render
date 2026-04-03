@@ -488,17 +488,13 @@ def _appears_truncated(data: dict) -> bool:
         return False
 
     # Check for missing critical sections ONLY if it looks like a resume
-    # if it has some content but no personalInfo, it's highly likely truncated
-    # since personalInfo is usually at the start or a primary requirement.
-    resume_content_keys = ["workExperience", "education", "summary", "personalProjects", "skills"]
-    has_content = any(k in data and data[k] for k in resume_content_keys)
+    # A resume is likely truncated if it has NO recognizable core sections at all.
+    # We no longer strictly require personalInfo, as some resumes are anonymized
+    # or the LLM might categorize it differently.
+    resume_content_keys = ["workExperience", "education", "summary", "personalProjects", "skills", "personalInfo"]
+    has_any_content = any(k in data and data[k] for k in resume_content_keys)
     
-    if has_content and "personalInfo" not in data:
-        logging.warning("Possible truncation detected: missing required section 'personalInfo'")
-        return True
-
-    # Check for complete emptiness which suggests extraction failure
-    if not has_content and "personalInfo" not in data:
+    if not has_any_content:
         logging.warning("Possible truncation detected: response contains no recognizable resume sections")
         return True
 
