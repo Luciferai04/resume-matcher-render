@@ -445,9 +445,30 @@ async def get_resume(
     if processed_data:
         processed_data = normalize_resume_data(processed_data)
 
-    processed_resume = (
-        ResumeData.model_validate(processed_data) if processed_data else None
-    )
+    # Gracefully handle corrupted processed_data that fails Pydantic validation.
+    # Without this, a 500 crash here causes the frontend to wrongly show
+    # "Processing failed" (because the catch-all sets status to 'failed'),
+    # while the DB still says 'ready', creating an unrecoverable deadlock
+    # where retry is refused.
+    processed_resume = None
+    if processed_data:
+        try:
+            processed_resume = ResumeData.model_validate(processed_data)
+        except Exception as e:
+            logger.warning(
+                "Failed to validate processed_data for resume %s: %s",
+                resume_id,
+                e,
+            )
+            # Mark status as failed so the UI shows the correct state
+            # and the retry button actually works
+            processing_status = "failed"
+            raw_resume.processing_status = "failed"
+            db.update_resume(
+                resume_id,
+                {"processing_status": "failed"},
+                user_id=user_id,
+            )
 
     return ResumeFetchResponse(
         request_id=str(uuid4()),
@@ -1196,10 +1217,14 @@ async def retry_processing(
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    if resume.get("processing_status") != "failed":
+    status = resume.get("processing_status")
+    # Allow retry for 'failed' status, but also for 'ready' resumes whose
+    # processed_data is corrupted / fails validation (which causes the
+    # detail endpoint to show them as failed in the UI).
+    if status not in ("failed", "ready"):
         raise HTTPException(
             status_code=400,
-            detail="Only resumes with 'failed' processing status can be retried.",
+            detail="Only resumes with 'failed' or 'ready' processing status can be retried.",
         )
 
     markdown_content = resume.get("content", "")
