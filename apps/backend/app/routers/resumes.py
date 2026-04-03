@@ -1236,10 +1236,18 @@ async def retry_processing(
 
     try:
         processed_data = await parse_resume_to_json(markdown_content)
+
+        # Validate through the same pipeline the detail endpoint uses,
+        # so we never save data that will crash on read.
+        processed_data = normalize_resume_data(processed_data)
+        validated = ResumeData.model_validate(processed_data)
+        # Serialize back to a clean dict to ensure DB consistency
+        clean_data = validated.model_dump(mode="json")
+
         db.update_resume(
             resume_id,
             {
-                "processed_data": processed_data,
+                "processed_data": clean_data,
                 "processing_status": "ready",
             },
             user_id=user_id,
