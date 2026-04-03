@@ -1260,10 +1260,11 @@ async def retry_processing(
             is_master=resume.get("is_master", False),
         )
     except Exception as e:
-        logger.warning(f"Retry processing failed for resume {resume_id}: {e}")
+        err_msg = str(e)
+        logger.warning(f"Retry processing failed for resume {resume_id}: {err_msg}")
         db.update_resume(resume_id, {"processing_status": "failed"}, user_id=user_id)
         return ResumeUploadResponse(
-            message="Retry processing failed",
+            message=f"Retry processing failed: {err_msg}",
             request_id=str(uuid4()),
             resume_id=resume_id,
             processing_status="failed",
