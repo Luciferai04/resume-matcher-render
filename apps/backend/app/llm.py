@@ -479,11 +479,12 @@ def _appears_truncated(data: dict) -> bool:
     # If it's clearly not a resume (e.g., ATS score or SWOT), skip truncation check
     is_ats = "totalScore" in data or "breakdown" in data
     is_swot = any(k in data for k in ["strengths", "weaknesses", "opportunities", "threats"])
-    is_enrichment = "items_to_enrich" in data or "questions" in data
+    is_enrichment = any(k in data for k in ["items_to_enrich", "questions", "additional_bullets", "new_bullets", "new_skills"])
     is_keywords = "keywords" in data or "required_skills" in data
+    is_message = any(k in data for k in ["cover_letter", "outreach_message", "title", "content"])
     is_test = "status" in data
     
-    if is_ats or is_swot or is_enrichment or is_keywords or is_test:
+    if is_ats or is_swot or is_enrichment or is_keywords or is_message or is_test:
         return False
 
     # Check for missing critical sections ONLY if it looks like a resume
