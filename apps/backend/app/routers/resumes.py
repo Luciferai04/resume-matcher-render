@@ -1559,7 +1559,7 @@ async def get_ats_score_endpoint(
     # Calculate ATS score
     try:
         result = await calculate_ats_score(
-            resume_data, job["content"], job_keywords, language
+            resume_id, resume_data, job_id, job["content"], job_keywords, language
         )
         return ATSScoreResponse.model_validate(result)
     except Exception as e:
