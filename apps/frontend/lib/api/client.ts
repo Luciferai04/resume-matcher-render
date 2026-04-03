@@ -32,13 +32,20 @@ const getApiUrl = () => {
 export const API_URL = getApiUrl();
 export const API_BASE = `${API_URL}/api/v1`;
 
-/**
- * Standard fetch wrapper with common error handling.
- * Returns the Response object for flexibility.
- */
 export async function apiFetch(endpoint: string, options?: RequestInit): Promise<Response> {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
-
+  // Determine if we need to prepend API_BASE
+  // Don't prepend if:
+  // 1. It's a full URL (starts with http)
+  // 2. It already starts with API_BASE
+  // 3. It already starts with /api/v1 (redundancy check)
+  let url = endpoint;
+  if (!endpoint.startsWith('http')) {
+    const basePrefix = API_BASE.replace(/\/+$/, '');
+    if (!endpoint.startsWith(basePrefix) && !endpoint.startsWith('/api/v1')) {
+      url = `${basePrefix}${endpoint}`;
+    }
+  }
+  
   // Inject X-User-ID header for multi-tenancy
   const headers = new Headers(options?.headers);
   headers.set('X-User-ID', getUserId());
