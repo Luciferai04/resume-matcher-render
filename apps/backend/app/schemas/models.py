@@ -238,6 +238,24 @@ class CustomSection(BaseModel):
     strings: list[str] | None = None  # For STRING_LIST
     text: str | None = None  # For TEXT
 
+    @field_validator("items", mode="before")
+    @classmethod
+    def _normalize_items(cls, value: Any) -> list[Any] | None:
+        if value is None:
+            return None
+        if isinstance(value, list):
+            new_items = []
+            for item in value:
+                if isinstance(item, str):
+                    new_items.append({"title": item})
+                elif isinstance(item, dict):
+                    new_items.append(item)
+                else:
+                    # Coerce other types to string and title
+                    new_items.append({"title": str(item)})
+            return new_items
+        return value
+
     @field_validator("strings", mode="before")
     @classmethod
     def _normalize_strings(cls, value: Any) -> list[str] | None:
