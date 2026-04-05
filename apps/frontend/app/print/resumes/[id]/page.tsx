@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import Resume, { ResumeData } from '@/components/dashboard/resume-component';
 import {
   type TemplateType,
@@ -77,18 +78,26 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
   return defaultValue;
 }
 
-async function fetchResumeData(id: string, userId?: string): Promise<ResumeData> {
-  const headers: Record<string, string> = {};
+async function fetchResumeData(id: string, userId?: string, hostUrl?: string): Promise<ResumeData> {
+  const reqHeaders: Record<string, string> = {};
   if (userId) {
-    headers['X-User-ID'] = userId;
+    reqHeaders['X-User-ID'] = userId;
   }
 
-  const res = await fetch(`${API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`, {
+  // Construct absolute API URL securely for Server Component side-effects
+  let baseApiUrl = API_BASE;
+  if (!baseApiUrl.startsWith('http') && hostUrl) {
+    // If API_BASE is relative (e.g., "/api/v1") due to missing env vars,
+    // construct an absolute URL using the incoming request's host.
+    baseApiUrl = `${hostUrl}${baseApiUrl.startsWith('/') ? '' : '/'}${baseApiUrl}`;
+  }
+
+  const res = await fetch(`${baseApiUrl}/resumes?resume_id=${encodeURIComponent(id)}`, {
     cache: 'no-store',
-    headers,
+    headers: reqHeaders,
   });
   if (!res.ok) {
-    throw new Error(`Failed to load resume (status ${res.status}).`);
+    throw new Error(`Failed to load resume (status ${res.status}). Base API used: ${baseApiUrl}`);
   }
   const payload = (await res.json()) as {
     data: { processed_resume?: ResumeData; raw_resume?: { content?: string } };
@@ -100,8 +109,6 @@ async function fetchResumeData(id: string, userId?: string): Promise<ResumeData>
     try {
       return JSON.parse(payload.data.raw_resume.content) as ResumeData;
     } catch (error) {
-      // Log error for debugging instead of silently failing
-      // Note: Avoid logging content preview to prevent PII exposure
       console.error('Failed to parse resume JSON:', {
         resumeId: id,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -159,20 +166,25 @@ function parsePageSize(value: string | undefined): PageSize {
 }
 
 export default async function PrintResumePage({ params, searchParams }: PageProps) {
-  try {
-    const resolvedParams = await params;
-    const resolvedSearchParams = searchParams ? await searchParams : undefined;
-    const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId);
-    const locale = resolveLocale(resolvedSearchParams?.lang);
-    const t = (key: string, variables?: Record<string, string | number>) =>
-      translate(locale, key, variables);
-    const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
-    const additionalSectionLabels = {
-      technicalSkills: t('resume.additionalLabels.technicalSkills'),
-      languages: t('resume.additionalLabels.languages'),
-      certifications: t('resume.additionalLabels.certifications'),
-      awards: t('resume.additionalLabels.awards'),
-    };
+  const resolvedParams = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  
+  const headersList = await headers();
+  const host = headersList.get('host');
+  const protocol = headersList.get('x-forwarded-proto') || 'http';
+  const hostUrl = host ? `${protocol}://${host}` : undefined;
+
+  const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId, hostUrl);
+  const locale = resolveLocale(resolvedSearchParams?.lang);
+  const t = (key: string, variables?: Record<string, string | number>) =>
+    translate(locale, key, variables);
+  const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
+  const additionalSectionLabels = {
+    technicalSkills: t('resume.additionalLabels.technicalSkills'),
+    languages: t('resume.additionalLabels.languages'),
+    certifications: t('resume.additionalLabels.certifications'),
+    awards: t('resume.additionalLabels.awards'),
+  };
     const sectionHeadings = {
       summary: t('resume.sections.summary'),
       experience: t('resume.sections.experience'),
@@ -262,15 +274,4 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
         />
       </div>
     );
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    return (
-      <div className="resume-print bg-white p-8">
-        <h1 className="text-red-600 text-2xl font-bold">Print Rendering Failed</h1>
-        <pre className="mt-4 p-4 bg-gray-100 rounded text-sm text-black">
-          {errorMsg}
-        </pre>
-      </div>
-    );
-  }
 }
