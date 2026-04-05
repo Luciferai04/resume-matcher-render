@@ -159,106 +159,118 @@ function parsePageSize(value: string | undefined): PageSize {
 }
 
 export default async function PrintResumePage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId);
-  const locale = resolveLocale(resolvedSearchParams?.lang);
-  const t = (key: string, params?: Record<string, string | number>) =>
-    translate(locale, key, params);
-  const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
-  const additionalSectionLabels = {
-    technicalSkills: t('resume.additionalLabels.technicalSkills'),
-    languages: t('resume.additionalLabels.languages'),
-    certifications: t('resume.additionalLabels.certifications'),
-    awards: t('resume.additionalLabels.awards'),
-  };
-  const sectionHeadings = {
-    summary: t('resume.sections.summary'),
-    experience: t('resume.sections.experience'),
-    education: t('resume.sections.education'),
-    projects: t('resume.sections.projects'),
-    certifications: t('resume.sections.certifications'),
-    skills: t('resume.sections.skillsOnly'),
-    languages: t('resume.sections.languages'),
-    awards: t('resume.sections.awards'),
-    links: t('resume.sections.links'),
-  };
-  const fallbackLabels = {
-    name: t('resume.defaults.name'),
-  };
+  try {
+    const resolvedParams = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId);
+    const locale = resolveLocale(resolvedSearchParams?.lang);
+    const t = (key: string, variables?: Record<string, string | number>) =>
+      translate(locale, key, variables);
+    const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
+    const additionalSectionLabels = {
+      technicalSkills: t('resume.additionalLabels.technicalSkills'),
+      languages: t('resume.additionalLabels.languages'),
+      certifications: t('resume.additionalLabels.certifications'),
+      awards: t('resume.additionalLabels.awards'),
+    };
+    const sectionHeadings = {
+      summary: t('resume.sections.summary'),
+      experience: t('resume.sections.experience'),
+      education: t('resume.sections.education'),
+      projects: t('resume.sections.projects'),
+      certifications: t('resume.sections.certifications'),
+      skills: t('resume.sections.skillsOnly'),
+      languages: t('resume.sections.languages'),
+      awards: t('resume.sections.awards'),
+      links: t('resume.sections.links'),
+    };
+    const fallbackLabels = {
+      name: t('resume.defaults.name'),
+    };
 
-  // Parse template settings from query params
-  const settings: TemplateSettings = {
-    template: parseTemplate(resolvedSearchParams?.template),
-    pageSize: parsePageSize(resolvedSearchParams?.pageSize),
-    margins: {
-      top: parseMargin(resolvedSearchParams?.marginTop, DEFAULT_TEMPLATE_SETTINGS.margins.top),
-      bottom: parseMargin(
-        resolvedSearchParams?.marginBottom,
-        DEFAULT_TEMPLATE_SETTINGS.margins.bottom
+    // Parse template settings from query params
+    const settings: TemplateSettings = {
+      template: parseTemplate(resolvedSearchParams?.template),
+      pageSize: parsePageSize(resolvedSearchParams?.pageSize),
+      margins: {
+        top: parseMargin(resolvedSearchParams?.marginTop, DEFAULT_TEMPLATE_SETTINGS.margins.top),
+        bottom: parseMargin(
+          resolvedSearchParams?.marginBottom,
+          DEFAULT_TEMPLATE_SETTINGS.margins.bottom
+        ),
+        left: parseMargin(resolvedSearchParams?.marginLeft, DEFAULT_TEMPLATE_SETTINGS.margins.left),
+        right: parseMargin(
+          resolvedSearchParams?.marginRight,
+          DEFAULT_TEMPLATE_SETTINGS.margins.right
+        ),
+      },
+      spacing: {
+        section: parseSpacingLevel(
+          resolvedSearchParams?.sectionSpacing,
+          DEFAULT_TEMPLATE_SETTINGS.spacing.section
+        ),
+        item: parseSpacingLevel(
+          resolvedSearchParams?.itemSpacing,
+          DEFAULT_TEMPLATE_SETTINGS.spacing.item
+        ),
+        lineHeight: parseSpacingLevel(
+          resolvedSearchParams?.lineHeight,
+          DEFAULT_TEMPLATE_SETTINGS.spacing.lineHeight
+        ),
+      },
+      fontSize: {
+        base: parseSpacingLevel(
+          resolvedSearchParams?.fontSize,
+          DEFAULT_TEMPLATE_SETTINGS.fontSize.base
+        ),
+        headerScale: parseSpacingLevel(
+          resolvedSearchParams?.headerScale,
+          DEFAULT_TEMPLATE_SETTINGS.fontSize.headerScale
+        ),
+        headerFont: parseHeaderFont(resolvedSearchParams?.headerFont),
+        bodyFont: parseBodyFont(resolvedSearchParams?.bodyFont),
+      },
+      compactMode: parseBoolean(
+        resolvedSearchParams?.compactMode,
+        DEFAULT_TEMPLATE_SETTINGS.compactMode
       ),
-      left: parseMargin(resolvedSearchParams?.marginLeft, DEFAULT_TEMPLATE_SETTINGS.margins.left),
-      right: parseMargin(
-        resolvedSearchParams?.marginRight,
-        DEFAULT_TEMPLATE_SETTINGS.margins.right
+      showContactIcons: parseBoolean(
+        resolvedSearchParams?.showContactIcons,
+        DEFAULT_TEMPLATE_SETTINGS.showContactIcons
       ),
-    },
-    spacing: {
-      section: parseSpacingLevel(
-        resolvedSearchParams?.sectionSpacing,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.section
-      ),
-      item: parseSpacingLevel(
-        resolvedSearchParams?.itemSpacing,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.item
-      ),
-      lineHeight: parseSpacingLevel(
-        resolvedSearchParams?.lineHeight,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.lineHeight
-      ),
-    },
-    fontSize: {
-      base: parseSpacingLevel(
-        resolvedSearchParams?.fontSize,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.base
-      ),
-      headerScale: parseSpacingLevel(
-        resolvedSearchParams?.headerScale,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.headerScale
-      ),
-      headerFont: parseHeaderFont(resolvedSearchParams?.headerFont),
-      bodyFont: parseBodyFont(resolvedSearchParams?.bodyFont),
-    },
-    compactMode: parseBoolean(
-      resolvedSearchParams?.compactMode,
-      DEFAULT_TEMPLATE_SETTINGS.compactMode
-    ),
-    showContactIcons: parseBoolean(
-      resolvedSearchParams?.showContactIcons,
-      DEFAULT_TEMPLATE_SETTINGS.showContactIcons
-    ),
-    accentColor: parseAccentColor(resolvedSearchParams?.accentColor),
-  };
+      accentColor: parseAccentColor(resolvedSearchParams?.accentColor),
+    };
 
-  // Note: Margins are applied by Playwright's PDF renderer (not here)
-  // This ensures margins appear on EVERY page, not just the first
-  // The settings are passed to override CSS variables for spacing/fonts only
-  const printSettings: TemplateSettings = {
-    ...settings,
-    // Zero out margins in CSS since Playwright handles them
-    margins: { top: 0, bottom: 0, left: 0, right: 0 },
-  };
+    // Note: Margins are applied by Playwright's PDF renderer (not here)
+    // This ensures margins appear on EVERY page, not just the first
+    // The settings are passed to override CSS variables for spacing/fonts only
+    const printSettings: TemplateSettings = {
+      ...settings,
+      // Zero out margins in CSS since Playwright handles them
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    };
 
-  return (
-    <div className="resume-print bg-white">
-      <Resume
-        resumeData={localizedResumeData}
-        template={settings.template}
-        settings={printSettings}
-        additionalSectionLabels={additionalSectionLabels}
-        sectionHeadings={sectionHeadings}
-        fallbackLabels={fallbackLabels}
-      />
-    </div>
-  );
+    return (
+      <div className="resume-print bg-white">
+        <Resume
+          resumeData={localizedResumeData}
+          template={settings.template}
+          settings={printSettings}
+          additionalSectionLabels={additionalSectionLabels}
+          sectionHeadings={sectionHeadings}
+          fallbackLabels={fallbackLabels}
+        />
+      </div>
+    );
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return (
+      <div className="resume-print bg-white p-8">
+        <h1 className="text-red-600 text-2xl font-bold">Print Rendering Failed</h1>
+        <pre className="mt-4 p-4 bg-gray-100 rounded text-sm text-black">
+          {errorMsg}
+        </pre>
+      </div>
+    );
+  }
 }
