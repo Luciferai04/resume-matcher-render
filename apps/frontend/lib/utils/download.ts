@@ -1,17 +1,27 @@
 export function downloadBlobAsFile(blob: Blob, filename: string): void {
   if (typeof document === 'undefined') return;
   if (!document.body) return;
-  const url = URL.createObjectURL(blob);
+  
+  // Ensure the blob is explicitly typed as PDF to help browser save logic
+  const typedBlob = blob.type === 'application/pdf' 
+    ? blob 
+    : new Blob([blob], { type: 'application/pdf' });
+    
+  const url = URL.createObjectURL(typedBlob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.target = '_blank'; // Safeguard for Safari/Mobile
   link.style.display = 'none';
+  
   document.body.appendChild(link);
   link.click();
+  
+  // Slightly longer delay for mobile/slow revocation
   setTimeout(() => {
     URL.revokeObjectURL(url);
     link.remove();
-  }, 1000);
+  }, 2000);
 }
 
 export function openUrlInNewTab(url: string): boolean {
