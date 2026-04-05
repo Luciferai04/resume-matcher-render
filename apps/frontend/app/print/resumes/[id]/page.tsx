@@ -87,8 +87,6 @@ async function fetchResumeData(id: string, userId?: string, hostUrl?: string): P
   // Construct absolute API URL securely for Server Component side-effects
   let baseApiUrl = API_BASE;
   if (!baseApiUrl.startsWith('http') && hostUrl) {
-    // If API_BASE is relative (e.g., "/api/v1") due to missing env vars,
-    // construct an absolute URL using the incoming request's host.
     baseApiUrl = `${hostUrl}${baseApiUrl.startsWith('/') ? '' : '/'}${baseApiUrl}`;
   }
 
@@ -97,7 +95,7 @@ async function fetchResumeData(id: string, userId?: string, hostUrl?: string): P
     headers: reqHeaders,
   });
   if (!res.ok) {
-    throw new Error(`Failed to load resume (status ${res.status}). Base API used: ${baseApiUrl}`);
+    throw new Error(`Failed to load resume (status ${res.status}). Base API used: ${baseApiUrl} with ID ${id} and userId ${userId || 'none'}`);
   }
   const payload = (await res.json()) as {
     data: { processed_resume?: ResumeData; raw_resume?: { content?: string } };
@@ -109,12 +107,8 @@ async function fetchResumeData(id: string, userId?: string, hostUrl?: string): P
     try {
       return JSON.parse(payload.data.raw_resume.content) as ResumeData;
     } catch (error) {
-      console.error('Failed to parse resume JSON:', {
-        resumeId: id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        contentLength: payload.data.raw_resume.content.length,
-      });
-      throw new Error('Failed to parse resume data. The resume content may be corrupted.');
+      console.error('Failed to parse resume JSON:', error);
+      throw new Error(`Failed to parse resume data for ID ${id}. Content: ${payload.data.raw_resume.content.slice(0, 100)}...`);
     }
   }
   return {} as ResumeData;
@@ -166,25 +160,26 @@ function parsePageSize(value: string | undefined): PageSize {
 }
 
 export default async function PrintResumePage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  
-  const headersList = await headers();
-  const host = headersList.get('host');
-  const protocol = headersList.get('x-forwarded-proto') || 'http';
-  const hostUrl = host ? `${protocol}://${host}` : undefined;
+  try {
+    const resolvedParams = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    
+    const headersList = await headers();
+    const host = headersList.get('host');
+    const protocol = headersList.get('x-forwarded-proto') || 'http';
+    const hostUrl = host ? `${protocol}://${host}` : undefined;
 
-  const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId, hostUrl);
-  const locale = resolveLocale(resolvedSearchParams?.lang);
-  const t = (key: string, variables?: Record<string, string | number>) =>
-    translate(locale, key, variables);
-  const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
-  const additionalSectionLabels = {
-    technicalSkills: t('resume.additionalLabels.technicalSkills'),
-    languages: t('resume.additionalLabels.languages'),
-    certifications: t('resume.additionalLabels.certifications'),
-    awards: t('resume.additionalLabels.awards'),
-  };
+    const resumeData = await fetchResumeData(resolvedParams.id, resolvedSearchParams?.userId, hostUrl);
+    const locale = resolveLocale(resolvedSearchParams?.lang);
+    const t = (key: string, variables?: Record<string, string | number>) =>
+      translate(locale, key, variables);
+    const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
+    const additionalSectionLabels = {
+      technicalSkills: t('resume.additionalLabels.technicalSkills'),
+      languages: t('resume.additionalLabels.languages'),
+      certifications: t('resume.additionalLabels.certifications'),
+      awards: t('resume.additionalLabels.awards'),
+    };
     const sectionHeadings = {
       summary: t('resume.sections.summary'),
       experience: t('resume.sections.experience'),
@@ -274,4 +269,15 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
         />
       </div>
     );
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return (
+      <div className="resume-print bg-white p-8">
+        <h1 className="text-red-600 text-2xl font-bold">Print Rendering Failed</h1>
+        <pre className="mt-4 p-4 bg-gray-100 rounded text-sm text-black">
+          {errorMsg}
+        </pre>
+      </div>
+    );
+  }
 }
