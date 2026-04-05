@@ -282,8 +282,8 @@ export async function downloadResumePdf(
   const url = getResumePdfUrl(resumeId, settings, locale);
   const res = await apiFetch(url);
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Failed to download resume (status ${res.status}): ${text}`);
+    const errorBody = await res.text().catch(() => 'Unknown error');
+    throw new Error(`PDF generation failed: ${errorBody}`);
   }
   return await res.blob();
 }
@@ -348,8 +348,8 @@ export async function downloadCoverLetterPdf(
   const url = getCoverLetterPdfUrl(resumeId, pageSize, locale);
   const res = await apiFetch(url);
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Failed to download cover letter (status ${res.status}): ${text}`);
+    const errorBody = await res.text().catch(() => 'Unknown error');
+    throw new Error(`Cover Letter generation failed: ${errorBody}`);
   }
   return await res.blob();
 }
