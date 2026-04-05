@@ -10,7 +10,7 @@ from collections.abc import Awaitable
 from pathlib import Path
 from typing import Any, NoReturn, Optional
 from uuid import uuid4
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Depends, Request
 from fastapi.responses import Response
 
 from app.database import db
@@ -19,6 +19,37 @@ from app.config import settings
 from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
+
+def _resolve_frontend_url(request: Request) -> str:
+    """Helper to dynamically resolve the frontend URL for PDF rendering.
+    
+    Prefers the Referer domain or current Host header if FRONTEND_BASE_URL 
+    is set to the default localhost but the request is coming from elsewhere.
+    """
+    # If the user explicitly configured a non-localhost URL, respect it
+    if "localhost" not in settings.frontend_base_url:
+        return settings.frontend_base_url
+
+    # Check Referer/Origin headers first (most reliable for frontend host)
+    referer = request.headers.get("referer")
+    if referer:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            if parsed.scheme and parsed.netloc:
+                return f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            pass
+
+    # Fallback to current request's Host header if it's not localhost
+    # This assumes frontend and backend might be on the same gateway/domain
+    host = request.headers.get("host")
+    if host and "localhost" not in host:
+        proto = request.headers.get("x-forwarded-proto", "http")
+        return f"{proto}://{host}"
+
+    return settings.frontend_base_url
+
 from app.schemas import (
     GenerateContentResponse,
     ImproveResumeConfirmRequest,
@@ -1108,6 +1139,7 @@ async def update_resume_endpoint(
 @router.get("/{resume_id}/pdf")
 async def download_resume_pdf(
     resume_id: str,
+    request: Request,
     user_id: Optional[str] = Depends(get_current_user),
     template: str = Query("swiss-single"),
     pageSize: str = Query("A4", pattern="^(A4|LETTER)$"),
@@ -1169,7 +1201,8 @@ async def download_resume_pdf(
     )
     if lang:
         params = f"{params}&lang={lang}"
-    url = f"{settings.frontend_base_url}/print/resumes/{resume_id}?{params}"
+    frontend_url = _resolve_frontend_url(request)
+    url = f"{frontend_url}/print/resumes/{resume_id}?{params}"
     if user_id:
         url = f"{url}&userId={user_id}"
 
@@ -1516,6 +1549,7 @@ async def get_job_description_for_resume(
 @router.get("/{resume_id}/cover-letter/pdf")
 async def download_cover_letter_pdf(
     resume_id: str,
+    request: Request,
     user_id: Optional[str] = Depends(get_current_user),
     pageSize: str = Query("A4", pattern="^(A4|LETTER)$"),
     lang: str | None = Query(None, pattern="^[a-z]{2}(-[A-Z]{2})?$"),
@@ -1538,7 +1572,8 @@ async def download_cover_letter_pdf(
         )
 
     # Build print URL (same pattern as resume PDF)
-    url = f"{settings.frontend_base_url}/print/cover-letter/{resume_id}?pageSize={pageSize}"
+    frontend_url = _resolve_frontend_url(request)
+    url = f"{frontend_url}/print/cover-letter/{resume_id}?pageSize={pageSize}"
     if lang:
         url = f"{url}&lang={lang}"
     if user_id:
